@@ -10,7 +10,8 @@ public class StatusCommand extends Command {
 
     @Override
     protected void call(AltoClef mod, ArgParser parser) {
-        mod.log(mod.getCompanionSession().describe());
+        int health = (int) Math.ceil(mod.getPlayer().getHealth());
+        mod.log(mod.getCompanionSession().describe() + " Health: " + health + "/20.");
         finish();
     }
 }

@@ -8,7 +8,7 @@ The project has a vendored AltoClef/Fabric client baseline and an initial safe c
 
 Establish a dedicated Minecraft Java Edition 1.20.1 client using Java 17, Fabric, and MiranCZ AltoClef with its bundled Baritone. Add companion session state, a self-managed LAN-world configuration, approved player names, and a local home location.
 
-Current implementation: command authorization is limited to the Butler whitelist, only private-message companion commands are accepted, and Baritone block breaking/placing is disabled. CI build verification and a real LAN run are pending.
+Current implementation: command authorization is limited to the Butler whitelist, only private-message companion commands are accepted, and Baritone block breaking/placing is disabled. The client also records companion state and cancels active companion movement when it detects lava, critically low health, or a dangerous fall. A real LAN run is pending.
 
 ## Milestone 1: Reliable Companionship
 
@@ -18,9 +18,9 @@ Implement a single-owner state machine with these states:
 | --- | --- | --- |
 | Idle | startup or task completion | accepts a new command |
 | Following | approved player requests follow | remains near the player |
-| Waiting | approved player requests stop | no movement command is active |
+| Paused | approved player requests pause | preserves the current task for an explicit resume |
 | Returning home | approved player requests home | position reaches the named home radius |
-| Safety pause | danger or path failure | bot reports why it stopped |
+| Safety pause | lava, critically low health, or dangerous fall | bot reports why it stopped and cancels navigation |
 | Stopped | cancellation or emergency stop | all navigation is cancelled |
 
 Acceptance scenario: in a self-managed LAN world, an approved player can issue private-message commands to follow, stop, come, go home, and report status. Each command receives a completion, failure, or cancellation response based on observed game state.
