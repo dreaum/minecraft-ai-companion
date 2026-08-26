@@ -35,4 +35,28 @@ public final class CompanionCommandPolicy {
         String command = trimmed.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
         return ALLOWED_COMMANDS.contains(command);
     }
+
+    public static boolean startsMovement(String message) {
+        if (message == null) {
+            return false;
+        }
+        String trimmed = message.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        String command = trimmed.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        return command.equals("follow") || command.equals("come") || command.equals("home");
+    }
+
+    public static boolean requiresSessionOwnership(String message) {
+        if (message == null) {
+            return false;
+        }
+        String trimmed = message.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        String command = trimmed.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        return !command.equals("status");
+    }
 }

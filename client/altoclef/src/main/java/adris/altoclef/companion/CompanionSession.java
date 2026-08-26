@@ -7,11 +7,29 @@ public final class CompanionSession {
 
     private CompanionState state = CompanionState.IDLE;
     private String targetPlayer;
+    private String owner;
     private CompanionState pausedState = CompanionState.IDLE;
     private String safetyReason;
 
     public CompanionState getState() {
         return state;
+    }
+
+    public boolean canControl(String playerName) {
+        return owner == null || owner.equalsIgnoreCase(playerName);
+    }
+
+    public void claimOwner(String playerName) {
+        if (!canControl(playerName)) {
+            throw new IllegalStateException("A different player owns the active companion session.");
+        }
+        owner = Objects.requireNonNull(playerName, "playerName");
+    }
+
+    public void releaseOwnerIfIdle() {
+        if (state == CompanionState.IDLE) {
+            owner = null;
+        }
     }
 
     public void startFollowing(String playerName) {
@@ -34,6 +52,7 @@ public final class CompanionSession {
 
     public void completeMovement() {
         targetPlayer = null;
+        owner = null;
         state = CompanionState.IDLE;
     }
 
@@ -70,6 +89,7 @@ public final class CompanionSession {
 
     public void stop() {
         targetPlayer = null;
+        owner = null;
         pausedState = CompanionState.IDLE;
         safetyReason = null;
         state = CompanionState.STOPPED;

@@ -100,7 +100,15 @@ public class Butler {
 
         if (userAuth.isUserAuthorized(username)) {
             if (CompanionCommandPolicy.isAllowed(message)) {
-                executeWhisper(username, message);
+                if (!CompanionCommandPolicy.requiresSessionOwnership(message)
+                        || mod.getCompanionSession().canControl(username)) {
+                    if (CompanionCommandPolicy.startsMovement(message)) {
+                        mod.getCompanionSession().claimOwner(username);
+                    }
+                    executeWhisper(username, message);
+                } else if (debug) {
+                    Debug.logMessage("    Rejecting: another player owns the active companion session.");
+                }
             } else if (debug) {
                 Debug.logMessage("    Rejecting: command is not allowed by the companion policy.");
             }
@@ -163,6 +171,7 @@ public class Butler {
                 sendWhisper("TASK FAILED: " + msg, MessagePriority.ASAP);
             }
             e.printStackTrace();
+            mod.getCompanionSession().releaseOwnerIfIdle();
             currentUser = null;
             commandInstantRan = false;
         });

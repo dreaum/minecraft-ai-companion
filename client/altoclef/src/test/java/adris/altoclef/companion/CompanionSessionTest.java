@@ -3,6 +3,8 @@ package adris.altoclef.companion;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompanionSessionTest {
 
@@ -55,5 +57,18 @@ class CompanionSessionTest {
         session.completeMovementIfActive();
         assertEquals(CompanionState.SAFETY_PAUSE, session.getState());
         assertEquals("Safety pause: lava detected", session.describe());
+    }
+
+    @Test
+    void activeCompanionSessionHasOneOwner() {
+        CompanionSession session = new CompanionSession();
+        session.claimOwner("Alex");
+        session.startFollowing("Alex");
+
+        assertTrue(session.canControl("Alex"));
+        assertFalse(session.canControl("Steve"));
+
+        session.stop();
+        assertTrue(session.canControl("Steve"));
     }
 }

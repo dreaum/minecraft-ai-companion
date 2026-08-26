@@ -24,4 +24,21 @@ class CompanionCommandPolicyTest {
         assertFalse(CompanionCommandPolicy.isAllowed("goto 0 64 0"));
         assertFalse(CompanionCommandPolicy.isAllowed("give Steve diamond 1"));
     }
+
+    @Test
+    void identifiesCommandsThatStartMovement() {
+        assertTrue(CompanionCommandPolicy.startsMovement("follow"));
+        assertTrue(CompanionCommandPolicy.startsMovement("come"));
+        assertTrue(CompanionCommandPolicy.startsMovement("home"));
+        assertFalse(CompanionCommandPolicy.startsMovement("status"));
+        assertFalse(CompanionCommandPolicy.startsMovement("stop"));
+    }
+
+    @Test
+    void onlyStatusIsReadOnlyForTheActiveSession() {
+        assertFalse(CompanionCommandPolicy.requiresSessionOwnership("status"));
+        assertTrue(CompanionCommandPolicy.requiresSessionOwnership("follow"));
+        assertTrue(CompanionCommandPolicy.requiresSessionOwnership("pause"));
+        assertTrue(CompanionCommandPolicy.requiresSessionOwnership("stop"));
+    }
 }
