@@ -29,9 +29,7 @@ jobs:
       - name: Build and test the 1.20.1 client
         run: |
           chmod +x gradlew
-          mkdir -p versions
-          echo 1.21.1 > versions/mainProject
-          ./gradlew :1.20.1:test :1.20.1:build --no-daemon
+          ./gradlew :1.20.1:test :1.20.1:build --no-daemon --stacktrace
 
       - name: Upload the remapped mod jar
         uses: actions/upload-artifact@v4
