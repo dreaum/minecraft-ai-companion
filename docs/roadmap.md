@@ -6,7 +6,7 @@ The project is at the architecture stage. The runtime design has been chosen; no
 
 ## Milestone 0: Foundation
 
-Establish a Node.js project using Mineflayer and a pinned Minecraft protocol version. Add configuration for a self-managed LAN world, companion name, approved player names, and a local home location.
+Establish a Node.js project using Mineflayer with Minecraft Java Edition 1.20.1 pinned as the initial protocol target. Add configuration for a self-managed LAN world, companion name, approved player names, and a local home location.
 
 Success signal: the companion connects, announces readiness only to approved players, and reconnects cleanly after a disconnect.
 
@@ -37,3 +37,4 @@ Add a small persistent player-preference store and an optional LLM adapter. The 
 
 - 2026-08-27: Use a protocol bot rather than a second Java client. The player sees an independent in-world teammate without the runtime cost and mod compatibility risk of Baritone or AltoClef.
 - 2026-08-27: Limit initial testing to self-managed LAN worlds. The project does not include authentication bypass or anti-cheat evasion.
+- 2026-08-27: Set Minecraft Java Edition 1.20.1 as the first supported protocol version. Later versions require their own compatibility verification before being advertised.

@@ -4,6 +4,8 @@
 
 A companion-style Minecraft bot for self-managed LAN worlds.
 
+**Initial Minecraft Java Edition target: 1.20.1.**
+
 The project goal is not autonomous speedrunning. The bot should feel like a cooperative player: stay near the player, respond to private messages, help with small tasks, report danger, and stop immediately when asked.
 
 ## Architecture Decision
@@ -39,7 +41,7 @@ Every command must return a verified success, failure, or cancelled state. The b
 
 ## Constraints
 
-- Initial validation happens only in self-managed Minecraft Java LAN worlds.
+- Initial validation happens only in self-managed Minecraft Java 1.20.1 LAN worlds.
 - The companion connects as an independently accepted player identity.
 - No authentication bypass, automated registration/login, anti-cheat evasion, or uncontrolled public-chat behavior.
 - High-risk actions such as dropping items, attacking players, or modifying builds are disabled by default.
