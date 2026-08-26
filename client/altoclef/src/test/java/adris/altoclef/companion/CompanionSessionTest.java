@@ -72,4 +72,30 @@ class CompanionSessionTest {
         session.stop();
         assertTrue(session.canControl("Steve"));
     }
+
+    @Test
+    void failedMovementRequestReleasesAnInactiveSessionOwner() {
+        CompanionSession session = new CompanionSession();
+        session.claimOwner("Alex");
+        session.stop();
+        session.claimOwner("Alex");
+        session.releaseOwnerIfInactive();
+
+        assertTrue(session.canControl("Steve"));
+    }
+
+    @Test
+    void inactiveOwnerReleaseDoesNotOverridePausedOrSafetyStates() {
+        CompanionSession session = new CompanionSession();
+        session.claimOwner("Alex");
+        session.startFollowing("Alex");
+        session.pause();
+        session.releaseOwnerIfInactive();
+        assertFalse(session.canControl("Steve"));
+
+        session.resume();
+        session.safetyPause("lava detected");
+        session.releaseOwnerIfInactive();
+        assertFalse(session.canControl("Steve"));
+    }
 }

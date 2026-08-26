@@ -20,6 +20,7 @@ import adris.altoclef.eventbus.events.TitleScreenEntryEvent;
 import adris.altoclef.multiversion.DrawContextWrapper;
 import adris.altoclef.multiversion.RenderLayerVer;
 import adris.altoclef.multiversion.versionedfields.Blocks;
+import adris.altoclef.tasks.movement.FollowPlayerTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.tasksystem.TaskRunner;
 import adris.altoclef.trackers.*;
@@ -162,7 +163,14 @@ public class AltoClef implements ModInitializer {
         butler = new Butler(this);
         companionSession = new CompanionSession();
         companionSafetyController = new CompanionSafetyController();
-        EventBus.subscribe(TaskFinishedEvent.class, evt -> companionSession.completeMovementIfActive());
+        EventBus.subscribe(TaskFinishedEvent.class, evt -> {
+            if (evt.lastTaskRan instanceof FollowPlayerTask
+                    && companionSession.getState() == adris.altoclef.companion.CompanionState.FOLLOWING) {
+                companionSession.completeMovement();
+            } else {
+                companionSession.completeMovementIfActive();
+            }
+        });
 
         initializeCommands();
 

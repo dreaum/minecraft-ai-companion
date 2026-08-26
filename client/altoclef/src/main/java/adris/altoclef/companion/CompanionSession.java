@@ -26,8 +26,8 @@ public final class CompanionSession {
         owner = Objects.requireNonNull(playerName, "playerName");
     }
 
-    public void releaseOwnerIfIdle() {
-        if (state == CompanionState.IDLE) {
+    public void releaseOwnerIfInactive() {
+        if (state == CompanionState.IDLE || state == CompanionState.STOPPED) {
             owner = null;
         }
     }

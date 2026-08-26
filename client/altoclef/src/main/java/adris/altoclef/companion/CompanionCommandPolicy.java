@@ -28,11 +28,11 @@ public final class CompanionCommandPolicy {
         }
 
         String trimmed = message.trim();
-        if (trimmed.isEmpty()) {
+        if (trimmed.isEmpty() || trimmed.matches(".*\\s+.*")) {
             return false;
         }
 
-        String command = trimmed.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        String command = trimmed.toLowerCase(Locale.ROOT);
         return ALLOWED_COMMANDS.contains(command);
     }
 
@@ -44,7 +44,7 @@ public final class CompanionCommandPolicy {
         if (trimmed.isEmpty()) {
             return false;
         }
-        String command = trimmed.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        String command = trimmed.toLowerCase(Locale.ROOT);
         return command.equals("follow") || command.equals("come") || command.equals("home");
     }
 
@@ -56,7 +56,7 @@ public final class CompanionCommandPolicy {
         if (trimmed.isEmpty()) {
             return false;
         }
-        String command = trimmed.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+        String command = trimmed.toLowerCase(Locale.ROOT);
         return !command.equals("status");
     }
 }

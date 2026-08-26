@@ -174,7 +174,7 @@ public class Butler {
                 sendWhisper(username, "TASK FAILED: " + msg, MessagePriority.ASAP);
             }
             e.printStackTrace();
-            mod.getCompanionSession().releaseOwnerIfIdle();
+            mod.getCompanionSession().releaseOwnerIfInactive();
             currentUser = null;
             commandInstantRan = false;
         });

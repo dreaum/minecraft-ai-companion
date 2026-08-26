@@ -8,12 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CompanionCommandPolicyTest {
 
     @Test
-    void permitsCompanionCommandsRegardlessOfCaseOrSpacing() {
+    void permitsExactCompanionCommandsRegardlessOfCaseOrOuterSpacing() {
         assertTrue(CompanionCommandPolicy.isAllowed("follow"));
         assertTrue(CompanionCommandPolicy.isAllowed("come"));
         assertTrue(CompanionCommandPolicy.isAllowed("home"));
         assertTrue(CompanionCommandPolicy.isAllowed("  STATUS  "));
-        assertTrue(CompanionCommandPolicy.isAllowed("pause now"));
     }
 
     @Test
@@ -23,6 +22,9 @@ class CompanionCommandPolicyTest {
         assertFalse(CompanionCommandPolicy.isAllowed("get diamond 64"));
         assertFalse(CompanionCommandPolicy.isAllowed("goto 0 64 0"));
         assertFalse(CompanionCommandPolicy.isAllowed("give Steve diamond 1"));
+        assertFalse(CompanionCommandPolicy.isAllowed("pause now"));
+        assertFalse(CompanionCommandPolicy.isAllowed("follow; get diamond 64"));
+        assertFalse(CompanionCommandPolicy.isAllowed("follow ; get diamond 64"));
     }
 
     @Test
