@@ -96,7 +96,7 @@ public final class CompanionSession {
     }
 
     public String describe() {
-        return switch (state) {
+        String activity = switch (state) {
             case FOLLOWING -> "Following " + targetPlayer + ".";
             case APPROACHING_PLAYER -> "Approaching " + targetPlayer + ".";
             case RETURNING_HOME -> "Returning home.";
@@ -105,5 +105,6 @@ public final class CompanionSession {
             case STOPPED -> "Stopped and waiting for a new request.";
             case IDLE -> "Idle and ready.";
         };
+        return owner == null ? activity : activity + " Session owner: " + owner + ".";
     }
 }

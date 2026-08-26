@@ -67,6 +67,7 @@ class CompanionSessionTest {
 
         assertTrue(session.canControl("Alex"));
         assertFalse(session.canControl("Steve"));
+        assertEquals("Following Alex. Session owner: Alex.", session.describe());
 
         session.stop();
         assertTrue(session.canControl("Steve"));
