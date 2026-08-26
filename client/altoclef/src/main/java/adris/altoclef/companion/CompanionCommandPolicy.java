@@ -11,6 +11,8 @@ public final class CompanionCommandPolicy {
 
     private static final Set<String> ALLOWED_COMMANDS = Set.of(
             "follow",
+            "come",
+            "home",
             "stop",
             "pause",
             "unpause",

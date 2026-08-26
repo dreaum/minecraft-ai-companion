@@ -10,6 +10,8 @@ class CompanionCommandPolicyTest {
     @Test
     void permitsCompanionCommandsRegardlessOfCaseOrSpacing() {
         assertTrue(CompanionCommandPolicy.isAllowed("follow"));
+        assertTrue(CompanionCommandPolicy.isAllowed("come"));
+        assertTrue(CompanionCommandPolicy.isAllowed("home"));
         assertTrue(CompanionCommandPolicy.isAllowed("  STATUS  "));
         assertTrue(CompanionCommandPolicy.isAllowed("pause now"));
     }

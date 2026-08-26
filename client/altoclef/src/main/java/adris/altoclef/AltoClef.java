@@ -264,6 +264,8 @@ public class AltoClef implements ModInitializer {
         getClientBaritoneSettings().allowParkour.value = false;
         getClientBaritoneSettings().allowParkourAscend.value = false;
         getClientBaritoneSettings().allowParkourPlace.value = false;
+        getClientBaritoneSettings().allowBreak.value = false;
+        getClientBaritoneSettings().allowPlace.value = false;
         getClientBaritoneSettings().allowDiagonalDescend.value = false;
         getClientBaritoneSettings().allowDiagonalAscend.value = false;
         getClientBaritoneSettings().blocksToAvoid.value = new LinkedList<>(List.of(Blocks.FLOWERING_AZALEA, Blocks.AZALEA,

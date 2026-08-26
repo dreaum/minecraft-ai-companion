@@ -26,8 +26,8 @@ After Fabric loads the mod once, create or edit the generated files in the compa
 - `configs/butler.json`: keep `useButlerWhitelist` set to `true`.
 - `altoclef_butler_whitelist.txt`: add the exact Minecraft name of each player allowed to command the companion.
 
-The companion accepts only private-message commands. In the current vertical slice, the command policy permits `follow`, `stop`, `pause`, `unpause`, and `status`; all other AltoClef commands, including resource collection, item transfer, coordinate travel, block placement, and block breaking, are rejected before task execution.
+The companion accepts only private-message commands. In the current vertical slice, the command policy permits `follow`, `come`, `home`, `stop`, `pause`, `unpause`, and `status`; all other AltoClef commands, including resource collection, item transfer, and arbitrary coordinate travel, are rejected before task execution. Baritone's automatic block breaking and block placement are disabled, so companion movement only uses naturally passable routes.
 
 ## Verification
 
-Use a self-managed LAN world with two normal client identities. From a whitelisted player, privately send `follow`, then `status`, then `stop`. The companion should reply to the same player with task progress and stop confirmation. A player absent from the whitelist must not be able to trigger a task.
+Use a self-managed LAN world with two normal client identities. From a whitelisted player, privately send `follow`, `come`, `home`, `status`, then `stop`. The companion should reply to the same player with task progress and stop confirmation. A player absent from the whitelist must not be able to trigger a task.
