@@ -9,7 +9,7 @@ pluginManagement {
         eachPlugin {
             when (requested.id.id) {
                 "com.replaymod.preprocess" -> {
-                    useModule("com.github.replaymod:preprocessor:${requested.version}")
+                    useModule("com.github.ReplayMod:preprocessor:${requested.version}")
                 }
             }
         }
