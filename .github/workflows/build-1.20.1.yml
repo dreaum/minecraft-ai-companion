@@ -1,0 +1,39 @@
+name: Build Minecraft 1.20.1 Client
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: client/altoclef
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build and test the 1.20.1 client
+        run: |
+          chmod +x gradlew
+          ./gradlew :1.20.1:test :1.20.1:build --no-daemon
+
+      - name: Upload the remapped mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-ai-companion-1.20.1
+          path: client/altoclef/versions/1.20.1/build/libs/*.jar
+          if-no-files-found: error
