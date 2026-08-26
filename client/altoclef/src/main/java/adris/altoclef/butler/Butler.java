@@ -161,14 +161,17 @@ public class Butler {
         String prefix = mod.getModSettings().getCommandPrefix();
         AltoClef.getCommandExecutor().execute(prefix + message, () -> {
             // On finish
-            sendWhisper("Command Finished: " + message, MessagePriority.TIMELY);
+            // Task completion can clear currentUser before this callback runs (for
+            // example, stopTasks emits TaskFinishedEvent). Reply to the sender
+            // captured for this request instead of relying on mutable state.
+            sendWhisper(username, "Command Finished: " + message, MessagePriority.TIMELY);
             if (!commandInstantRan) {
                 currentUser = null;
             }
             commandFinished = true;
         }, e -> {
             for (String msg : e.getMessage().split("\n")) {
-                sendWhisper("TASK FAILED: " + msg, MessagePriority.ASAP);
+                sendWhisper(username, "TASK FAILED: " + msg, MessagePriority.ASAP);
             }
             e.printStackTrace();
             mod.getCompanionSession().releaseOwnerIfIdle();
