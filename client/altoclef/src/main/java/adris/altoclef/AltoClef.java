@@ -4,6 +4,7 @@ package adris.altoclef;
 import adris.altoclef.butler.Butler;
 import adris.altoclef.chains.*;
 import adris.altoclef.companion.CompanionSession;
+import adris.altoclef.companion.CompanionSafetyController;
 import adris.altoclef.trackers.BlockScanner;
 import adris.altoclef.commandsystem.CommandExecutor;
 import adris.altoclef.commandsystem.TabCompleter;
@@ -85,6 +86,7 @@ public class AltoClef implements ModInitializer {
     // Butler
     private Butler butler;
     private CompanionSession companionSession;
+    private CompanionSafetyController companionSafetyController;
     // Pausing
     private boolean paused = false;
     private Task storedTask;
@@ -159,6 +161,7 @@ public class AltoClef implements ModInitializer {
 
         butler = new Butler(this);
         companionSession = new CompanionSession();
+        companionSafetyController = new CompanionSafetyController();
         EventBus.subscribe(TaskFinishedEvent.class, evt -> companionSession.completeMovementIfActive());
 
         initializeCommands();
@@ -218,6 +221,8 @@ public class AltoClef implements ModInitializer {
         runEnqueuedPostInits();
 
         inputControls.onTickPre();
+
+        companionSafetyController.tick(this);
 
         // Cancel shortcut
         if (InputHelper.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL) && InputHelper.isKeyPressed(GLFW.GLFW_KEY_K)) {

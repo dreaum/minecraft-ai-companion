@@ -29,7 +29,7 @@ public class ComeCommand extends Command {
 
         mod.getCompanionSession().startApproaching(username);
         mod.runUserTask(new ComeToPlayerTask(target.get(), 2), () -> {
-            mod.getCompanionSession().completeMovement();
+            mod.getCompanionSession().completeMovementIfActive();
             finish();
         });
     }

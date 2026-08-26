@@ -7,5 +7,6 @@ public enum CompanionState {
     APPROACHING_PLAYER,
     RETURNING_HOME,
     PAUSED,
+    SAFETY_PAUSE,
     STOPPED
 }

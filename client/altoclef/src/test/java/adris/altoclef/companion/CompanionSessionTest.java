@@ -46,4 +46,14 @@ class CompanionSessionTest {
         session.completeMovementIfActive();
         assertEquals(CompanionState.IDLE, session.getState());
     }
+
+    @Test
+    void safetyPauseIsNotOverwrittenByTaskCompletion() {
+        CompanionSession session = new CompanionSession();
+        session.startApproaching("Alex");
+        session.safetyPause("lava detected");
+        session.completeMovementIfActive();
+        assertEquals(CompanionState.SAFETY_PAUSE, session.getState());
+        assertEquals("Safety pause: lava detected", session.describe());
+    }
 }
