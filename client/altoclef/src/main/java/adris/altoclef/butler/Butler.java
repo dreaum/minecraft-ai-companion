@@ -2,6 +2,7 @@ package adris.altoclef.butler;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.Debug;
+import adris.altoclef.companion.CompanionCommandPolicy;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ChatMessageEvent;
 import adris.altoclef.eventbus.events.TaskFinishedEvent;
@@ -98,7 +99,11 @@ public class Butler {
         }
 
         if (userAuth.isUserAuthorized(username)) {
-            executeWhisper(username, message);
+            if (CompanionCommandPolicy.isAllowed(message)) {
+                executeWhisper(username, message);
+            } else if (debug) {
+                Debug.logMessage("    Rejecting: command is not allowed by the companion policy.");
+            }
         } else {
             if (debug) {
                 Debug.logMessage("    Rejecting: User \"" + username + "\" is not authorized.");

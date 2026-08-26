@@ -17,7 +17,7 @@ public class ButlerConfig {
     /**
      * If true, will use whitelist to only accept users from said whitelist.
      */
-    public boolean useButlerWhitelist = false;
+    public boolean useButlerWhitelist = true;
     /**
      * Servers have different messaging plugins that change the way messages are displayed.
      * Rather than attempt to implement all of them and introduce a big security risk,
@@ -43,13 +43,13 @@ public class ButlerConfig {
      * <p>
      * Enable this if you need help setting up the whisper format.
      */
-    public boolean whisperFormatDebug = true;
+    public boolean whisperFormatDebug = false;
     /**
      * Determines if failure messages should be sent to a non-authorized entity attempting to use butler
      * <p>
      * Disable this if you need to stay undercover.
      */
-    public boolean sendAuthorizationResponse = true;
+    public boolean sendAuthorizationResponse = false;
     /**
      * The response sent in a failed execution due to non-authorization
      * {from}: the username of the player who triggered the failed authorization response

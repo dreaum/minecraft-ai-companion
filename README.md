@@ -10,7 +10,7 @@ The project goal is not autonomous speedrunning. The bot should feel like a coop
 
 ## Architecture Decision
 
-The companion runs in a dedicated Minecraft Java client. The baseline is Minecraft Java Edition 1.20.1, Java 17, Fabric, and the maintained MiranCZ AltoClef fork, which bundles its compatible Baritone implementation.
+The companion runs in a dedicated Minecraft Java client. The baseline is Minecraft Java Edition 1.20.1, Fabric, and the maintained MiranCZ AltoClef fork, which bundles its compatible Baritone implementation. Minecraft 1.20.1 runs on Java 17; the current multi-version client source needs Java 21 to build it.
 
 ```text
 Player Minecraft client                 Companion Minecraft client
@@ -56,3 +56,4 @@ Every command must return a verified success, failure, or cancelled state. The b
 5. Add short-term memory, personality, and an LLM that selects only approved high-level intents.
 
 See [docs/roadmap.md](docs/roadmap.md) for the acceptance scenarios and progress log.
+See [docs/getting-started.md](docs/getting-started.md) for the local build and first-run safety setup.

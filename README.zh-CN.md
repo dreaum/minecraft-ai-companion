@@ -10,7 +10,7 @@
 
 ## 架构决策
 
-玩伴将在一个独立的 Minecraft Java 客户端中运行。首个基线是 Minecraft Java Edition 1.20.1、Java 17、Fabric，以及内置兼容 Baritone 的 MiranCZ AltoClef 分支。
+玩伴将在一个独立的 Minecraft Java 客户端中运行。首个基线是 Minecraft Java Edition 1.20.1、Fabric，以及内置兼容 Baritone 的 MiranCZ AltoClef 分支。Minecraft 1.20.1 的运行环境为 Java 17；当前多版本客户端源码的构建环境需要 Java 21。
 
 ```text
 玩家的 Minecraft 客户端                 玩伴的 Minecraft 客户端
@@ -56,3 +56,4 @@
 5. 增加短期记忆、人格，以及只能选择已批准高层意图的 LLM。
 
 完整的验收场景和进度记录见 [docs/roadmap.md](docs/roadmap.md)。
+本机构建和首次运行的安全配置见 [docs/getting-started.md](docs/getting-started.md)。
