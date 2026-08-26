@@ -1,5 +1,7 @@
 # Minecraft AI Companion
 
+[简体中文](README.zh-CN.md)
+
 A companion-style Minecraft bot for self-managed LAN worlds.
 
 The project goal is not autonomous speedrunning. The bot should feel like a cooperative player: stay near the player, respond to private messages, help with small tasks, report danger, and stop immediately when asked.
