@@ -10,21 +10,22 @@
 
 ## 架构决策
 
-玩伴以轻量协议机器人运行，而不是启动第二个完整 Java Minecraft 客户端。
+玩伴将在一个独立的 Minecraft Java 客户端中运行。首个基线是 Minecraft Java Edition 1.20.1、Java 17、Fabric，以及内置兼容 Baritone 的 MiranCZ AltoClef 分支。
 
 ```text
-玩家的 Minecraft 客户端
-        |
-     局域网世界
-        |
-Node.js 玩伴机器人
-  - Mineflayer
-  - 寻路和任务状态机
-  - 私聊命令适配器
-  - 记忆与可选 LLM 规划器
+玩家的 Minecraft 客户端                 玩伴的 Minecraft 客户端
+        |                                          |
+        +--------------- 局域网世界 ----------------+
+                                                   |
+                                  Companion Mod
+                                  - 陪伴行为和权限控制
+                                  - 私聊命令适配器
+                                  - 安全控制器和记忆
+                                  - AltoClef 任务与 Baritone 移动
+                                  - 可选 LLM 规划器
 ```
 
-这样可以避免把玩伴绑定到 Fabric、Baritone、AltoClef 或第二个可见的 Minecraft 客户端。Baritone 和 AltoClef 只作为任务设计参考，不作为运行时依赖。
+这会需要第二个 Minecraft 客户端实例，但能让玩伴拥有与玩家相同的客户端世界模型和交互能力。BaritonePlus 的公开代码维护活跃度较低，因此不作为运行时依赖。
 
 ## 第一个里程碑
 
@@ -48,7 +49,7 @@ Node.js 玩伴机器人
 
 ## 路线图
 
-1. 建立 Mineflayer 连接、私聊白名单与生命周期日志。
+1. 建立独立 Fabric 客户端、私聊白名单与生命周期日志。
 2. 实现玩伴状态机：空闲、跟随、等待、回家、安全暂停和已停止。
 3. 增加可靠导航、家位置记忆、寻路失败恢复和状态汇报。
 4. 增加有限协作能力，例如附近资源收集和基础保护。

@@ -10,21 +10,22 @@ The project goal is not autonomous speedrunning. The bot should feel like a coop
 
 ## Architecture Decision
 
-The companion runs as a lightweight protocol bot instead of a second full Java Minecraft client.
+The companion runs in a dedicated Minecraft Java client. The baseline is Minecraft Java Edition 1.20.1, Java 17, Fabric, and the maintained MiranCZ AltoClef fork, which bundles its compatible Baritone implementation.
 
 ```text
-Player Minecraft client
-        |
-   LAN world
-        |
-Node.js companion bot
-  - Mineflayer
-  - pathfinding and task state machine
-  - private-message command adapter
-  - memory and optional LLM planner
+Player Minecraft client                 Companion Minecraft client
+        |                                          |
+        +--------------- LAN world ----------------+
+                                                   |
+                                  Companion Mod
+                                  - social behavior and permissions
+                                  - private-message command adapter
+                                  - safety controller and memory
+                                  - AltoClef tasks and Baritone movement
+                                  - optional LLM planner
 ```
 
-This avoids binding the companion to Fabric, Baritone, AltoClef, or a visible second Minecraft client. Baritone and AltoClef remain useful design references, not runtime dependencies.
+This costs a second Minecraft client instance, but gives the companion the same client-side world model and interaction capabilities as a player. BaritonePlus is not a runtime dependency because its public codebase is much less actively maintained.
 
 ## First Milestone
 
@@ -48,7 +49,7 @@ Every command must return a verified success, failure, or cancelled state. The b
 
 ## Roadmap
 
-1. Establish the Mineflayer connection, private-message whitelist, and lifecycle logging.
+1. Establish the dedicated Fabric client, private-message whitelist, and lifecycle logging.
 2. Implement the companion state machine: idle, following, waiting, returning home, safety pause, and stopped.
 3. Add reliable navigation, home memory, path-failure recovery, and status reports.
 4. Add limited cooperative tasks such as nearby resource collection and basic protection.
