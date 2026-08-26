@@ -12,6 +12,10 @@ public class HomeCommand extends Command {
 
     @Override
     protected void call(AltoClef mod, ArgParser parser) {
-        mod.runUserTask(new GetToBlockTask(mod.getModSettings().getHomeBasePosition()), this::finish);
+        mod.getCompanionSession().startReturningHome();
+        mod.runUserTask(new GetToBlockTask(mod.getModSettings().getHomeBasePosition()), () -> {
+            mod.getCompanionSession().completeMovement();
+            finish();
+        });
     }
 }

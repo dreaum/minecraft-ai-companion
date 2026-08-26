@@ -2,13 +2,13 @@
 
 ## Project Status
 
-The project is at the architecture stage. The runtime design has been chosen; no bot behavior is implemented yet.
+The project has a vendored AltoClef/Fabric client baseline and an initial safe companion-command slice. It has not yet passed an end-to-end two-client LAN test.
 
 ## Milestone 0: Foundation
 
-Establish a dedicated Minecraft Java Edition 1.20.1 client using Java 17, Fabric, and MiranCZ AltoClef with its bundled Baritone. Add a Companion Mod with configuration for a self-managed LAN world, companion name, approved player names, and a local home location.
+Establish a dedicated Minecraft Java Edition 1.20.1 client using Java 17, Fabric, and MiranCZ AltoClef with its bundled Baritone. Add companion session state, a self-managed LAN-world configuration, approved player names, and a local home location.
 
-Success signal: the companion connects, announces readiness only to approved players, and reconnects cleanly after a disconnect.
+Current implementation: command authorization is limited to the Butler whitelist, only private-message companion commands are accepted, and Baritone block breaking/placing is disabled. CI build verification and a real LAN run are pending.
 
 ## Milestone 1: Reliable Companionship
 
@@ -38,3 +38,4 @@ Add a small persistent player-preference store and an optional LLM adapter. The 
 - 2026-08-27: Use a dedicated Java client rather than a protocol bot. This consumes more resources but provides the companion with a complete client-side world model and mature AltoClef/Baritone action execution.
 - 2026-08-27: Limit initial testing to self-managed LAN worlds. The project does not include authentication bypass or anti-cheat evasion.
 - 2026-08-27: Set Minecraft Java Edition 1.20.1 as the first supported protocol version. Later versions require their own compatibility verification before being advertised.
+- 2026-08-27: Treat the product as a dedicated Fabric client that joins a world as a normal player, not as a Mineflayer/protocol bot. The AI layer will select only approved companion intents.

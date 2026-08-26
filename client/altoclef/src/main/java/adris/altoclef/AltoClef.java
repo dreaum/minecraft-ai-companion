@@ -3,6 +3,7 @@ package adris.altoclef;
 
 import adris.altoclef.butler.Butler;
 import adris.altoclef.chains.*;
+import adris.altoclef.companion.CompanionSession;
 import adris.altoclef.trackers.BlockScanner;
 import adris.altoclef.commandsystem.CommandExecutor;
 import adris.altoclef.commandsystem.TabCompleter;
@@ -13,6 +14,7 @@ import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ClientRenderEvent;
 import adris.altoclef.eventbus.events.ClientTickEvent;
 import adris.altoclef.eventbus.events.SendChatEvent;
+import adris.altoclef.eventbus.events.TaskFinishedEvent;
 import adris.altoclef.eventbus.events.TitleScreenEntryEvent;
 import adris.altoclef.multiversion.DrawContextWrapper;
 import adris.altoclef.multiversion.RenderLayerVer;
@@ -82,6 +84,7 @@ public class AltoClef implements ModInitializer {
     private SlotHandler slotHandler;
     // Butler
     private Butler butler;
+    private CompanionSession companionSession;
     // Pausing
     private boolean paused = false;
     private Task storedTask;
@@ -155,6 +158,8 @@ public class AltoClef implements ModInitializer {
         slotHandler = new SlotHandler(this);
 
         butler = new Butler(this);
+        companionSession = new CompanionSession();
+        EventBus.subscribe(TaskFinishedEvent.class, evt -> companionSession.completeMovementIfActive());
 
         initializeCommands();
 
@@ -446,6 +451,10 @@ public class AltoClef implements ModInitializer {
      */
     public Butler getButler() {
         return butler;
+    }
+
+    public CompanionSession getCompanionSession() {
+        return companionSession;
     }
 
     /**

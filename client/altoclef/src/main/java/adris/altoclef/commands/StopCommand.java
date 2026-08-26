@@ -15,6 +15,7 @@ public class StopCommand extends Command {
     @Override
     protected void call(AltoClef mod, ArgParser parser) {
         mod.stopTasks();
+        mod.getCompanionSession().stop();
         finish();
     }
 }

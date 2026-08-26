@@ -20,6 +20,7 @@ public class PauseCommand extends Command {
             mod.setPaused(true);
             mod.getUserTaskChain().stop();
             mod.getTaskRunner().disable();
+            mod.getCompanionSession().pause();
             log("Pausing Bot and time");
         }
         finish();

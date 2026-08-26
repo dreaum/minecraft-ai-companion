@@ -27,6 +27,10 @@ public class ComeCommand extends Command {
             throw new RuntimeCommandException("I cannot see " + username + " yet. Move within my render distance and try again.");
         }
 
-        mod.runUserTask(new ComeToPlayerTask(target.get(), 2), this::finish);
+        mod.getCompanionSession().startApproaching(username);
+        mod.runUserTask(new ComeToPlayerTask(target.get(), 2), () -> {
+            mod.getCompanionSession().completeMovement();
+            finish();
+        });
     }
 }

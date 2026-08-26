@@ -22,6 +22,7 @@ public class UnPauseCommand extends Command {
             } else {
                 mod.runUserTask(mod.getStoredTask());
                 mod.getTaskRunner().enable();
+                mod.getCompanionSession().resume();
                 mod.log("Unpausing Bot and time");
             }
             mod.setPaused(false);
