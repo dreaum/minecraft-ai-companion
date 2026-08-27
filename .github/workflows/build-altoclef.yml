@@ -18,9 +18,13 @@ jobs:
           java-version: '21'
           cache: gradle
       - name: Build 1.20.1
-        run: ./gradlew :1.20.1:build --no-daemon --stacktrace
+        continue-on-error: true
+        run: ./gradlew :1.20.1:build --no-daemon --stacktrace 2>&1 | tee build.log
       - name: Upload mod jar
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: altoclef-1.20.1
-          path: client/altoclef/versions/1.20.1/build/libs/*.jar
+          path: |
+            client/altoclef/versions/1.20.1/build/libs/*.jar
+            client/altoclef/build.log
