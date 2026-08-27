@@ -32,7 +32,7 @@ jobs:
           mkdir -p versions
           echo 1.21.1 > versions/mainProject
           set +e
-          ./gradlew :1.20.1:test :1.20.1:build --no-daemon --stacktrace 2>&1 | tee build.log
+          timeout 12m ./gradlew :1.20.1:test :1.20.1:build --no-daemon --stacktrace 2>&1 | tee build.log
           status=${PIPESTATUS[0]}
           exit $status
 
