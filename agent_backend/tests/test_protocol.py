@@ -8,6 +8,10 @@ class ProtocolTests(unittest.TestCase):
         value = decode(encode({"type": "tool_result", "id": "x", "status": "completed", "ok": True}))
         self.assertEqual(value["protocol_version"], 1)
 
+    def test_agent_message_is_valid_bridge_output(self):
+        value = decode(encode({"type": "agent_message", "user": "owner", "message": "hello"}))
+        self.assertEqual(value["message"], "hello")
+
     def test_rejects_wrong_version(self):
         with self.assertRaises(ValueError): decode('{"protocol_version":99}')
 
@@ -21,13 +25,14 @@ class ProtocolTests(unittest.TestCase):
 
     def test_direct_player_commands_use_companion_task(self):
         self.assertEqual(direct_companion_call("过来"), {"tool": "altoclef_task", "arguments": {"command": "come"}})
-        self.assertEqual(direct_companion_call("collect oak_log 1")["arguments"]["command"], "collect oak 1")
+        self.assertEqual(direct_companion_call("collect oak_log 1")["arguments"]["command"], "collect oak_log 1")
+        self.assertEqual(direct_companion_call("橡木原木")["arguments"]["command"], "collect oak_log 1")
 
     def test_free_text_remains_for_llm(self):
         self.assertIsNone(direct_companion_call("帮我在附近找个安全的地方"))
 
     def test_model_command_is_normalized_before_bridge(self):
         call = normalize_tool_call({"tool": "altoclef_task", "arguments": {"command": "collect oak_log 1"}})
-        self.assertEqual(call["arguments"]["command"], "collect oak 1")
+        self.assertEqual(call["arguments"]["command"], "collect oak_log 1")
 
 if __name__ == "__main__": unittest.main()

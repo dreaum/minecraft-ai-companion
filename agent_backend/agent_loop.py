@@ -21,15 +21,15 @@ _DIRECT_COMMANDS = {
     "follow": "follow", "follow me": "follow", "跟随": "follow", "跟着我": "follow",
     "protect": "protect", "保护我": "protect", "stop": "stop", "停止": "stop",
     "status": "status", "状态": "status", "queue": "queue", "队列": "queue",
+    "橡木原木": "collect oak_log 1", "砍树": "collect oak_log 1", "砍木头": "collect oak_log 1",
 }
 
 # AltoClef's catalogue uses wood type names ("oak", "birch", ...), while
 # the public Agent interface deliberately uses Minecraft item IDs.
-_CATALOG_ALIASES = {
-    "acacia_log": "acacia", "birch_log": "birch", "dark_oak_log": "dark_oak",
-    "jungle_log": "jungle", "mangrove_log": "mangrove", "oak_log": "oak",
-    "spruce_log": "spruce", "crimson_stem": "crimson", "warped_stem": "warped",
-}
+# Keep canonical Minecraft IDs on the bridge. Java's CompanionTaskFactory owns
+# the Alto Clef catalogue aliases; translating here caused oak_log to become
+# oak and made valid requests fail validation.
+_CATALOG_ALIASES = {}
 
 
 def direct_companion_call(text):
@@ -68,7 +68,7 @@ class AgentLoop:
         self.llm, self.send, self.tools = llm, send, tools
         self.messages = [{"role": "system", "content": SYSTEM}]
         self.pending = {}
-        self.max_followup_turns = 8
+        self.max_followup_turns = 3
         self.followup_turns = 0
         self.latest_observation = {}
         self.log = logging.getLogger("agent")
@@ -97,7 +97,10 @@ class AgentLoop:
             for request_id, call in zip(request_ids, calls):
                 # Chat output is terminal: feeding a successful chat tool back
                 # to the model commonly creates a self-reinforcing reply loop.
-                terminal = call.get("tool") in {"chat_private", "chat_public", "chat"}
+                # Alto Clef/Baritone owns long-running game tasks after they
+                # are queued. Asking the LLM for another decision immediately
+                # causes duplicate collect/follow/path commands.
+                terminal = call.get("tool") in {"chat_private", "chat_public", "chat", "altoclef_task", "baritone_goal"}
                 self.pending[request_id] = (user, direct is not None, terminal)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", request_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":request_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})
@@ -135,7 +138,7 @@ class AgentLoop:
             next_ids = [str(uuid.uuid4()) for _ in calls]
             self._append_assistant_tool_calls(response, calls, next_ids)
             for next_id, call in zip(next_ids, calls):
-                next_terminal = call.get("tool") in {"chat_private", "chat_public", "chat"}
+                next_terminal = call.get("tool") in {"chat_private", "chat_public", "chat", "altoclef_task", "baritone_goal"}
                 self.pending[next_id] = (user, False, next_terminal)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", next_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":next_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})

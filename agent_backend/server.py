@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from pathlib import Path
 from .agent_loop import AgentLoop
 from .llm_client import LLMClient
@@ -27,7 +28,20 @@ async def run():
     config = properties(CONFIG)
     expected_token = config.get("token", "")
     llm = LLMClient(config.get("url", "http://127.0.0.1:11434/v1"), config.get("model", "llama3.1"), config.get("key", ""))
-    logging.basicConfig(filename=str(CONFIG.parent / "python-agent.log"), level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    log_format = "%(asctime)s %(levelname)s %(message)s"
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        file_handler = logging.FileHandler(CONFIG.parent / "python-agent.log", encoding="utf-8")
+        console_handler = logging.StreamHandler(sys.stdout)
+        file_handler.setFormatter(logging.Formatter(log_format))
+        console_handler.setFormatter(logging.Formatter(log_format))
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+    logging.getLogger("agent").info(
+        "backend_started config=%s model=%s endpoint=%s",
+        CONFIG, llm.model, llm.endpoint,
+    )
     state = {"connected": False, "protocol_version": PROTOCOL_VERSION, "tools": []}
     async def handler(websocket):
         state["connected"] = True

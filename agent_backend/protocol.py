@@ -1,7 +1,7 @@
 import json
 
 PROTOCOL_VERSION = 1
-MESSAGE_TYPES = {"hello", "hello_ack", "user_request", "tool_call", "tool_result", "world_event", "agent_error", "shutdown"}
+MESSAGE_TYPES = {"hello", "hello_ack", "user_request", "tool_call", "tool_result", "world_event", "agent_message", "agent_error", "shutdown"}
 TOOL_STATUSES = {"completed", "running", "failed", "cancelled"}
 
 def validate_message(message: dict) -> None:

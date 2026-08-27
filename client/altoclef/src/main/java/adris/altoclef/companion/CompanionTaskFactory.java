@@ -18,18 +18,10 @@ import net.minecraft.util.math.BlockPos;
 final class CompanionTaskFactory {
 
     private static String canonicalTarget(String target) {
-        return switch (target) {
-            case "oak_log" -> "oak";
-            case "birch_log" -> "birch";
-            case "spruce_log" -> "spruce";
-            case "jungle_log" -> "jungle";
-            case "acacia_log" -> "acacia";
-            case "dark_oak_log" -> "dark_oak";
-            case "mangrove_log" -> "mangrove";
-            case "crimson_stem" -> "crimson";
-            case "warped_stem" -> "warped";
-            default -> target;
-        };
+        // Companion commands use canonical Minecraft/Alto Clef catalogue IDs
+        // (for example oak_log). Do not shorten them to oak: the catalogue
+        // registers each wood variant under its full ID.
+        return target;
     }
 
     private CompanionTaskFactory() {
