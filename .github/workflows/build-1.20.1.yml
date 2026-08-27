@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -60,3 +60,19 @@ jobs:
           name: minecraft-ai-companion-1.20.1
           path: client/altoclef/versions/1.20.1/build/libs/*.jar
           if-no-files-found: error
+
+      - name: Publish remapped jar to artifacts branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp client/altoclef/versions/1.20.1/build/libs/altoclef-1.20.1-0.19.jar /tmp/minecraft-ai-companion-1.20.1.jar
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin artifacts || true
+          git checkout -B artifacts
+          rm -f minecraft-ai-companion-1.20.1.jar
+          cp /tmp/minecraft-ai-companion-1.20.1.jar ./minecraft-ai-companion-1.20.1.jar
+          git add minecraft-ai-companion-1.20.1.jar
+          git commit -m "build: publish 1.20.1 remapped jar" || true
+          git push origin artifacts --force
