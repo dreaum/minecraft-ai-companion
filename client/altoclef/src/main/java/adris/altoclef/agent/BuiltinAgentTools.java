@@ -152,7 +152,13 @@ public final class BuiltinAgentTools {
         public JsonNode schema() { return BuiltinAgentTools.schema("{\"direction\":{\"type\":\"string\",\"enum\":[\"MOVE_FORWARD\",\"MOVE_BACK\",\"MOVE_LEFT\",\"MOVE_RIGHT\",\"JUMP\",\"SNEAK\",\"SPRINT\"]},\"action\":{\"type\":\"string\",\"enum\":[\"hold\",\"release\",\"press\"]}}", "[\"direction\",\"action\"]"); }
         public ToolResult execute(JsonNode args) {
             try {
-                Input key = Input.valueOf(args.path("direction").asText().toUpperCase(Locale.ROOT));
+                String direction = args.path("direction").asText("").toUpperCase(Locale.ROOT);
+                direction = switch (direction) {
+                    case "FORWARD" -> "MOVE_FORWARD"; case "BACK" -> "MOVE_BACK";
+                    case "LEFT" -> "MOVE_LEFT"; case "RIGHT" -> "MOVE_RIGHT";
+                    default -> direction;
+                };
+                Input key = Input.valueOf(direction);
                 String action = args.path("action").asText("press").toLowerCase(Locale.ROOT);
                 switch (action) { case "hold" -> mod.getInputControls().hold(key); case "release" -> mod.getInputControls().release(key); case "press" -> mod.getInputControls().tryPress(key); default -> { return ToolResult.failed("invalid action"); } }
                 return ToolResult.completed(JSON.createObjectNode().put("direction", key.name()).put("action", action));
