@@ -24,7 +24,10 @@ public final class OpenAiCompatibleClient {
 
     public OpenAiCompatibleClient(String baseUrl, String model, String apiKey, Duration timeout) {
         String normalized = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.endpoint = URI.create(normalized + "/v1/chat/completions");
+        // Accept either an OpenAI server root or a base URL that already ends in /v1.
+        this.endpoint = URI.create(normalized.endsWith("/v1")
+                ? normalized + "/chat/completions"
+                : normalized + "/v1/chat/completions");
         this.model = model;
         this.apiKey = apiKey == null ? "" : apiKey;
         this.timeout = timeout == null ? Duration.ofSeconds(60) : timeout;

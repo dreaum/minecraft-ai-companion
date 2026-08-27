@@ -182,17 +182,27 @@ public class AltoClef implements ModInitializer {
         agentStore = new AgentStore(agentRoot);
         agentAuditLog = new AgentAuditLog(agentRoot);
         taskExperienceStore = new TaskExperienceStore(agentStore);
-        String llmUrl = System.getProperty("minecraft.agent.llm.url", "http://127.0.0.1:11434");
-        String llmModel = System.getProperty("minecraft.agent.llm.model", "llama3.1");
-        agentLoop = new AgentLoop(new OpenAiCompatibleClient(llmUrl, llmModel, System.getProperty("minecraft.agent.llm.key", ""), java.time.Duration.ofSeconds(60)), agentTools, agentAuditLog);
+        agentTools = new AgentToolRegistry();
+        adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
+        java.util.Properties llmConfig = new java.util.Properties();
+        java.nio.file.Path llmConfigPath = agentRoot.resolve("llm.properties");
+        if (java.nio.file.Files.exists(llmConfigPath)) {
+            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(llmConfigPath, java.nio.charset.StandardCharsets.UTF_8)) {
+                llmConfig.load(reader);
+            } catch (java.io.IOException exception) {
+                log("Agent LLM config unavailable: " + exception.getMessage());
+            }
+        }
+        String llmUrl = llmConfig.getProperty("url", System.getProperty("minecraft.agent.llm.url", "http://127.0.0.1:11434"));
+        String llmModel = llmConfig.getProperty("model", System.getProperty("minecraft.agent.llm.model", "llama3.1"));
+        String llmKey = llmConfig.getProperty("key", System.getProperty("minecraft.agent.llm.key", ""));
+        agentLoop = new AgentLoop(new OpenAiCompatibleClient(llmUrl, llmModel, llmKey, java.time.Duration.ofSeconds(60)), agentTools, agentAuditLog);
         try {
             tutorialIndex = new TutorialIndex(agentStore);
             tutorialIndex.rebuild();
         } catch (java.sql.SQLException | java.io.IOException exception) {
             log("Agent tutorial index unavailable: " + exception.getMessage());
         }
-        agentTools = new AgentToolRegistry();
-        adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
         initializeCommands();
 
         // Load settings
