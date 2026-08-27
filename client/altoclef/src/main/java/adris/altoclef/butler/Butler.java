@@ -126,7 +126,7 @@ public class Butler {
         // so altoclef_task and chat_private can authorize this LLM turn.
         currentUser = username;
         ObjectNode system = AGENT_JSON.createObjectNode(); system.put("role", "system");
-        system.put("content", "You control Minecraft through registered tools. Return only structured tool calls. Observe before acting.");
+        system.put("content", "You control Minecraft through registered tools. Return only structured tool calls. Observe before acting. For search_tutorial, always query using canonical English Minecraft IDs and action keywords (for example oak_log, crafting_table, furnace, smelting, mining, water, lava, combat), not a Chinese sentence. Read the matching tutorial before executing the task, then verify the result with observe_world or inventory.");
         ObjectNode user = AGENT_JSON.createObjectNode(); user.put("role", "user"); user.put("content", request);
         sendWhisper(username, "AI request accepted.", MessagePriority.TIMELY);
         mod.getAgentLoop().submit(List.of(system, user), result -> {

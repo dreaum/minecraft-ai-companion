@@ -50,9 +50,41 @@ public final class TutorialIndex implements AutoCloseable {
 
     public List<Hit> search(String query, int limit) throws SQLException {
         List<Hit> hits = new ArrayList<>();
+        int boundedLimit = Math.max(1, Math.min(limit, 50));
         try (PreparedStatement p = connection.prepareStatement("SELECT t.id,t.title,t.path,snippet(tutorial_fts,2,'','', '...', 24) FROM tutorial_fts f JOIN tutorials t ON t.id=f.id WHERE tutorial_fts MATCH ? LIMIT ?")) {
-            p.setString(1, query); p.setInt(2, Math.max(1, Math.min(limit, 50)));
+            p.setString(1, query); p.setInt(2, boundedLimit);
             try (ResultSet r = p.executeQuery()) { while (r.next()) hits.add(new Hit(r.getString(1), r.getString(2), r.getString(3), r.getString(4))); }
+        } catch (SQLException ignored) {
+            // FTS MATCH rejects punctuation and some natural-language input.
+        }
+        // The default FTS tokenizer does not reliably segment Chinese text. Keep
+        // keyword search useful for Chinese requests and item names by falling
+        // back to a literal, parameterized substring query.
+        if (hits.isEmpty() && query != null && !query.isBlank()) {
+            String normalized = query.trim();
+            List<String> terms = new ArrayList<>();
+            terms.add(normalized);
+            // Chinese requests often contain several concepts without spaces.
+            // Two-character n-grams provide useful fallback keywords while the
+            // parameterized query below keeps the input safe.
+            if (normalized.codePoints().allMatch(c -> c > 0x7f) && normalized.length() <= 32) {
+                for (int i = 0; i + 2 <= normalized.length(); i++) terms.add(normalized.substring(i, i + 2));
+            }
+            String predicates = String.join(" OR ", terms.stream().map(t -> "lower(content) LIKE lower(?) OR lower(title) LIKE lower(?)").toList());
+            try (PreparedStatement p = connection.prepareStatement("SELECT id,title,path,content FROM tutorials WHERE " + predicates + " LIMIT ?")) {
+                int parameter = 1;
+                for (String term : terms) {
+                    String pattern = "%" + term + "%";
+                    p.setString(parameter++, pattern); p.setString(parameter++, pattern);
+                }
+                p.setInt(parameter, boundedLimit);
+                try (ResultSet r = p.executeQuery()) {
+                    while (r.next()) {
+                        String content = r.getString(4).replaceAll("\\s+", " ");
+                        hits.add(new Hit(r.getString(1), r.getString(2), r.getString(3), content.substring(0, Math.min(content.length(), 240))));
+                    }
+                }
+            }
         }
         return hits;
     }
