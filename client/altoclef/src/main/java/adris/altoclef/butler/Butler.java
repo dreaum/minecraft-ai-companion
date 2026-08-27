@@ -122,6 +122,9 @@ public class Butler {
 
     private void receiveAgentRequest(String username, String request) {
         if (request.isBlank()) { sendWhisper(username, "AI request is empty.", MessagePriority.TIMELY); return; }
+        // Establish the same owner context used by legacy companion commands
+        // so altoclef_task and chat_private can authorize this LLM turn.
+        currentUser = username;
         ObjectNode system = AGENT_JSON.createObjectNode(); system.put("role", "system");
         system.put("content", "You control Minecraft through registered tools. Return only structured tool calls. Observe before acting.");
         ObjectNode user = AGENT_JSON.createObjectNode(); user.put("role", "user"); user.put("content", request);
