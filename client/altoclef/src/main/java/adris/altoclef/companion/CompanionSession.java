@@ -8,7 +8,7 @@ public final class CompanionSession {
     private CompanionState state = CompanionState.IDLE;
     private String targetPlayer;
     private String owner;
-    private String activity;
+    private String activity = null;
     private CompanionState pausedState = CompanionState.IDLE;
     private String safetyReason;
 

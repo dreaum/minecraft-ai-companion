@@ -20,6 +20,10 @@ final class ProtectPlayerTask extends Task {
     }
 
     @Override
+    protected void onStart() {
+    }
+
+    @Override
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
         PlayerEntity protectedPlayer = mod.getEntityTracker().getPlayerEntity(owner).orElse(null);
