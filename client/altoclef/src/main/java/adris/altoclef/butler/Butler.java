@@ -2,7 +2,6 @@ package adris.altoclef.butler;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.Debug;
-import adris.altoclef.companion.CompanionCommandPolicy;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ChatMessageEvent;
 import adris.altoclef.eventbus.events.TaskFinishedEvent;
@@ -99,19 +98,8 @@ public class Butler {
         }
 
         if (userAuth.isUserAuthorized(username)) {
-            if (CompanionCommandPolicy.isAllowed(message)) {
-                if (!CompanionCommandPolicy.requiresSessionOwnership(message)
-                        || mod.getCompanionSession().canControl(username)) {
-                    if (CompanionCommandPolicy.startsMovement(message)) {
-                        mod.getCompanionSession().claimOwner(username);
-                    }
-                    executeWhisper(username, message);
-                } else if (debug) {
-                    Debug.logMessage("    Rejecting: another player owns the active companion session.");
-                }
-            } else if (debug) {
-                Debug.logMessage("    Rejecting: command is not allowed by the companion policy.");
-            }
+            mod.getCompanionOrchestrator().handle(username, message,
+                    reply -> sendWhisper(username, reply, MessagePriority.TIMELY));
         } else {
             if (debug) {
                 Debug.logMessage("    Rejecting: User \"" + username + "\" is not authorized.");

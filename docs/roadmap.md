@@ -2,13 +2,13 @@
 
 ## Project Status
 
-The project has a vendored AltoClef/Fabric client baseline and an initial safe companion-command slice. It has not yet passed an end-to-end two-client LAN test.
+The project has a vendored AltoClef/Fabric client baseline and a structured companion action orchestrator. It has not yet passed an end-to-end two-client LAN test.
 
 ## Milestone 0: Foundation
 
 Establish a dedicated Minecraft Java Edition 1.20.1 client using Java 17, Fabric, and MiranCZ AltoClef with its bundled Baritone. Add companion session state, a self-managed LAN-world configuration, approved player names, and a local home location.
 
-Current implementation: command authorization is limited to the Butler whitelist, only private-message companion commands are accepted, and Baritone block breaking/placing is disabled. The client also records companion state and cancels active companion movement when it detects lava, critically low health, or a dangerous fall. A real LAN run is pending.
+Current implementation: command authorization is limited to the Butler whitelist and only private-message companion commands are accepted. The action orchestrator validates one intent per message, rejects invalid targets and quantities above 64, serializes work by priority, and maps approved requests to AltoClef resource, movement, combat and delivery tasks. Protected positions remain protected. A real LAN run is pending.
 
 ## Milestone 1: Reliable Companionship
 
@@ -27,7 +27,9 @@ Acceptance scenario: in a self-managed LAN world, an approved player can issue p
 
 ## Milestone 2: Cooperative Tasks
 
-Add bounded assistance tasks: collect a nearby requested block, pick up an explicitly requested item, and protect the companion's immediate area from hostile mobs. Tasks must stop when the player cancels them, the bot becomes unsafe, or their preconditions become false.
+Implemented source scope: `collect`, `craft`, `smelt`, `goto`, `follow`, `come`, `home`, `attack`, `protect`, `unprotect`, `give`, `status`, `queue`, and `stop`. AltoClef's resource catalogue supplies the full acquisition chain. `give` rejects items not already held by the companion; `protect` is a persistent owner-focused task and only targets hostile mobs near that owner.
+
+Pending acceptance: PCL-launched dual-client LAN verification of every command, priority preemption, dangerous-world recovery, and truthful task failure reports.
 
 ## Milestone 3: Conversation and Memory
 

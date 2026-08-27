@@ -6,6 +6,8 @@ public enum CompanionState {
     FOLLOWING,
     APPROACHING_PLAYER,
     RETURNING_HOME,
+    EXECUTING,
+    PROTECTING,
     PAUSED,
     SAFETY_PAUSE,
     STOPPED

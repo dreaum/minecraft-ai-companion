@@ -5,6 +5,7 @@ import adris.altoclef.butler.Butler;
 import adris.altoclef.chains.*;
 import adris.altoclef.companion.CompanionSession;
 import adris.altoclef.companion.CompanionSafetyController;
+import adris.altoclef.companion.CompanionOrchestrator;
 import adris.altoclef.trackers.BlockScanner;
 import adris.altoclef.commandsystem.CommandExecutor;
 import adris.altoclef.commandsystem.TabCompleter;
@@ -15,12 +16,10 @@ import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ClientRenderEvent;
 import adris.altoclef.eventbus.events.ClientTickEvent;
 import adris.altoclef.eventbus.events.SendChatEvent;
-import adris.altoclef.eventbus.events.TaskFinishedEvent;
 import adris.altoclef.eventbus.events.TitleScreenEntryEvent;
 import adris.altoclef.multiversion.DrawContextWrapper;
 import adris.altoclef.multiversion.RenderLayerVer;
 import adris.altoclef.multiversion.versionedfields.Blocks;
-import adris.altoclef.tasks.movement.FollowPlayerTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.tasksystem.TaskRunner;
 import adris.altoclef.trackers.*;
@@ -88,6 +87,7 @@ public class AltoClef implements ModInitializer {
     private Butler butler;
     private CompanionSession companionSession;
     private CompanionSafetyController companionSafetyController;
+    private CompanionOrchestrator companionOrchestrator;
     // Pausing
     private boolean paused = false;
     private Task storedTask;
@@ -163,15 +163,7 @@ public class AltoClef implements ModInitializer {
         butler = new Butler(this);
         companionSession = new CompanionSession();
         companionSafetyController = new CompanionSafetyController();
-        EventBus.subscribe(TaskFinishedEvent.class, evt -> {
-            if (evt.lastTaskRan instanceof FollowPlayerTask
-                    && companionSession.getState() == adris.altoclef.companion.CompanionState.FOLLOWING) {
-                companionSession.completeMovement();
-            } else {
-                companionSession.completeMovementIfActive();
-            }
-        });
-
+        companionOrchestrator = new CompanionOrchestrator(this, companionSession);
         initializeCommands();
 
         // Load settings
@@ -468,6 +460,10 @@ public class AltoClef implements ModInitializer {
 
     public CompanionSession getCompanionSession() {
         return companionSession;
+    }
+
+    public CompanionOrchestrator getCompanionOrchestrator() {
+        return companionOrchestrator;
     }
 
     /**

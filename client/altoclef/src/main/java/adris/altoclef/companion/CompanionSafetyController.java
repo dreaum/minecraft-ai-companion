@@ -8,19 +8,22 @@ import net.minecraft.client.network.ClientPlayerEntity;
 public final class CompanionSafetyController {
 
     public void tick(AltoClef mod) {
-        if (!AltoClef.inGame() || !mod.getCompanionSession().isMovementActive()) {
+        if (!AltoClef.inGame()) {
             return;
         }
 
         ClientPlayerEntity player = mod.getPlayer();
         boolean safelyGrounded = player.isOnGround() || player.isTouchingWater()
                 || player.isSwimming() || player.isClimbing();
-        CompanionSafetyRules.evaluate(mod.getCompanionSession().isMovementActive(), player.isInLava(),
-                        player.getHealth(), safelyGrounded, player.getVelocity().y)
-                .ifPresent(reason -> {
-                    mod.getCompanionSession().safetyPause(reason);
-                    mod.logWarning("Companion stopped for safety: " + reason + ".", MessagePriority.ASAP);
-                    mod.cancelUserTask();
-                });
+        boolean monitoring = mod.getCompanionSession().isMovementActive()
+                || mod.getCompanionSession().getState() == CompanionState.SAFETY_PAUSE;
+        CompanionSafetyRules.evaluate(monitoring, player.isInLava(), player.getHealth(), safelyGrounded,
+                        player.getVelocity().y)
+                .ifPresentOrElse(reason -> {
+                    if (mod.getCompanionSession().getState() != CompanionState.SAFETY_PAUSE) {
+                        mod.getCompanionOrchestrator().safetyPause(reason);
+                        mod.logWarning("Companion stopped for safety: " + reason + ".", MessagePriority.ASAP);
+                    }
+                }, mod.getCompanionOrchestrator()::resumeAfterSafety);
     }
 }

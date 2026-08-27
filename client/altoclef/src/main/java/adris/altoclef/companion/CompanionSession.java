@@ -8,6 +8,7 @@ public final class CompanionSession {
     private CompanionState state = CompanionState.IDLE;
     private String targetPlayer;
     private String owner;
+    private String activity;
     private CompanionState pausedState = CompanionState.IDLE;
     private String safetyReason;
 
@@ -44,6 +45,27 @@ public final class CompanionSession {
         state = CompanionState.APPROACHING_PLAYER;
     }
 
+    public void startProtecting(String playerName) {
+        targetPlayer = Objects.requireNonNull(playerName, "playerName");
+        activity = null;
+        safetyReason = null;
+        state = CompanionState.PROTECTING;
+    }
+
+    public void startExecuting(String description) {
+        targetPlayer = null;
+        activity = Objects.requireNonNull(description, "description");
+        safetyReason = null;
+        state = CompanionState.EXECUTING;
+    }
+
+    public void setIdle() {
+        targetPlayer = null;
+        activity = null;
+        safetyReason = null;
+        state = CompanionState.IDLE;
+    }
+
     public void startReturningHome() {
         targetPlayer = null;
         safetyReason = null;
@@ -65,7 +87,9 @@ public final class CompanionSession {
     public boolean isMovementActive() {
         return state == CompanionState.FOLLOWING
                 || state == CompanionState.APPROACHING_PLAYER
-                || state == CompanionState.RETURNING_HOME;
+                || state == CompanionState.RETURNING_HOME
+                || state == CompanionState.EXECUTING
+                || state == CompanionState.PROTECTING;
     }
 
     public void safetyPause(String reason) {
@@ -100,6 +124,8 @@ public final class CompanionSession {
             case FOLLOWING -> "Following " + targetPlayer + ".";
             case APPROACHING_PLAYER -> "Approaching " + targetPlayer + ".";
             case RETURNING_HOME -> "Returning home.";
+            case EXECUTING -> "Executing " + activity + ".";
+            case PROTECTING -> "Protecting " + targetPlayer + ".";
             case PAUSED -> "Paused.";
             case SAFETY_PAUSE -> "Safety pause: " + safetyReason;
             case STOPPED -> "Stopped and waiting for a new request.";

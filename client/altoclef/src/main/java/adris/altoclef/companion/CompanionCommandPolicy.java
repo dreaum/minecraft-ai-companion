@@ -1,62 +1,22 @@
 package adris.altoclef.companion;
 
-import java.util.Locale;
-import java.util.Set;
-
 /**
- * Limits player-issued whispers to companion actions that do not modify the world.
- * Additional actions must be reviewed here before they become remotely callable.
+ * Compatibility facade for code which needs to ask whether a whisper is one approved companion intent.
  */
 public final class CompanionCommandPolicy {
-
-    private static final Set<String> ALLOWED_COMMANDS = Set.of(
-            "follow",
-            "come",
-            "home",
-            "stop",
-            "pause",
-            "unpause",
-            "status"
-    );
 
     private CompanionCommandPolicy() {
     }
 
     public static boolean isAllowed(String message) {
-        if (message == null) {
-            return false;
-        }
-
-        String trimmed = message.trim();
-        if (trimmed.isEmpty() || trimmed.matches(".*\\s+.*")) {
-            return false;
-        }
-
-        String command = trimmed.toLowerCase(Locale.ROOT);
-        return ALLOWED_COMMANDS.contains(command);
+        return CompanionIntentParser.parse(message).accepted();
     }
 
     public static boolean startsMovement(String message) {
-        if (message == null) {
-            return false;
-        }
-        String trimmed = message.trim();
-        if (trimmed.isEmpty()) {
-            return false;
-        }
-        String command = trimmed.toLowerCase(Locale.ROOT);
-        return command.equals("follow") || command.equals("come") || command.equals("home");
+        return CompanionIntentParser.parse(message).intent().map(CompanionIntent::isMovement).orElse(false);
     }
 
     public static boolean requiresSessionOwnership(String message) {
-        if (message == null) {
-            return false;
-        }
-        String trimmed = message.trim();
-        if (trimmed.isEmpty()) {
-            return false;
-        }
-        String command = trimmed.toLowerCase(Locale.ROOT);
-        return !command.equals("status");
+        return CompanionIntentParser.parse(message).intent().map(intent -> !intent.isReadOnly()).orElse(true);
     }
 }

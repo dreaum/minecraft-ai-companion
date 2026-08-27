@@ -27,7 +27,9 @@ After Fabric loads the mod once, create or edit the generated files in the compa
 - `altoclef/altoclef_butler_whitelist.txt`: add the exact Minecraft name of each player allowed to command the companion.
 - `altoclef/altoclef_settings.json`: review the configured `homeBasePosition` before using `home`.
 
-The companion accepts only private-message commands. Each private message must contain exactly one of `follow`, `come`, `home`, `stop`, `pause`, `unpause`, or `status`; arguments and chained commands are rejected before task execution. All other AltoClef commands, including resource collection, item transfer, and arbitrary coordinate travel, are rejected. Baritone's automatic block breaking and block placement are disabled, so companion movement only uses naturally passable routes.
+The companion accepts only private-message commands from its Butler whitelist. Each private message must contain exactly one approved action; chained commands are rejected before task execution. Supported actions are `collect <item> <count>`, `craft <item> <count>`, `smelt <item> <count>`, `goto <x> <y> <z>`, `follow`, `come`, `home`, `attack <entity> <count>`, `protect`, `unprotect`, `give <item> <count>`, `status`, `queue`, and `stop`. Counts are limited to 1 through 64. The first active requester becomes the single session owner; other players are rejected until the session finishes or receives `stop`.
+
+Resource requests use AltoClef's catalogue and may mine, craft, smelt, place supporting blocks, and travel across dimensions. Do not add locations to the protected-position settings if the companion must modify them. `give` deliberately does not acquire missing items: it only transfers items already in the companion inventory.
 
 ## PCL Two-Client Setup
 
@@ -40,4 +42,4 @@ The companion account joins the LAN world as an ordinary player. Only the Fabric
 
 ## Verification
 
-Use a self-managed LAN world with two normal client identities. From a whitelisted player, privately send `follow`, `come`, `home`, `status`, then `stop`. The companion should reply to the same player with task progress and stop confirmation. A player absent from the whitelist must not be able to trigger a task.
+Use a self-managed LAN world with two normal client identities. From the whitelisted owner, test `follow`, `collect iron_ingot 1`, `craft torch 4`, `smelt iron_ingot 1`, `protect`, `give <item> <count>`, a higher-priority movement request, then `stop`. The companion should reply to the same player with queue, execution, completion, failure, or cancellation status. A player absent from the whitelist and a second whitelisted player without ownership must not be able to trigger a task.
