@@ -42,6 +42,18 @@
 
 每一条命令都必须依据游戏状态返回已验证的成功、失败或取消结果。机器人不得在未检查游戏状态时宣称任务成功。
 
+## 可选远程 LLM
+
+`ai` 私聊入口从伙伴实例游戏目录下的 `agent/llm.properties` 读取 OpenAI 兼容接口配置，不需要 JVM 参数。文件格式如下，请只在本机填写真实密钥，不要提交到 Git：
+
+```properties
+url=https://example.invalid/v1
+model=your-model-id
+key=your-api-key
+```
+
+客户端会请求 `{url}/chat/completions`，既支持填写服务器根地址，也支持已经以 `/v1` 结尾的地址。测试 Minecraft 前，应先确认 `{url}/models` 能列出模型，并且聊天请求返回 HTTP 200。若接口返回 HTTP 503，表示网关在线但模型后端不可用，伙伴不会产生 AI 工具动作。
+
 ## 约束
 
 - 初始验证只在自主管理的 Minecraft Java 1.20.1 局域网世界中进行。

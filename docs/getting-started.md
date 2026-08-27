@@ -29,6 +29,18 @@ After Fabric loads the mod once, create or edit the generated files in the compa
 
 The companion accepts only private-message commands from its Butler whitelist. Each private message must contain exactly one approved action; chained commands are rejected before task execution. Supported actions are `collect <item> <count>`, `craft <item> <count>`, `smelt <item> <count>`, `goto <x> <y> <z>`, `follow`, `come`, `home`, `attack <entity> <count>`, `protect`, `unprotect`, `give <item> <count>`, `status`, `queue`, and `stop`. Counts are limited to 1 through 64. The first active requester becomes the single session owner; other players are rejected until the session finishes or receives `stop`.
 
+## Optional Remote LLM
+
+The `ai` private-message entry point reads an OpenAI-compatible configuration from `agent/llm.properties` in the companion instance's game directory. It does not require JVM arguments. Copy the following shape and replace the values locally; do not commit the file because the API key is sensitive:
+
+```properties
+url=https://example.invalid/v1
+model=your-model-id
+key=your-api-key
+```
+
+The client requests `POST {url}/chat/completions`. Both a server root (`https://host`) and a base URL ending in `/v1` are accepted. Before testing Minecraft, verify that `GET {url}/models` lists the configured model and that a minimal chat-completions request returns HTTP 200. A gateway returning HTTP 503 means the model backend is unavailable; the Minecraft client cannot execute an AI tool call until the service is restored.
+
 Resource requests use AltoClef's catalogue and may mine, craft, smelt, place supporting blocks, and travel across dimensions. Do not add locations to the protected-position settings if the companion must modify them. `give` deliberately does not acquire missing items: it only transfers items already in the companion inventory.
 
 ## PCL Two-Client Setup
