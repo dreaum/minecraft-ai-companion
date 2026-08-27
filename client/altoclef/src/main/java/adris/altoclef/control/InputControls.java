@@ -68,6 +68,15 @@ public class InputControls {
         return inputToKeyBinding(input).isPressed();
     }
 
+    /** Emergency release used by the agent stop tool and disconnect cleanup. */
+    public void releaseAll() {
+        for (Input input : Input.values()) {
+            try { release(input); } catch (IllegalArgumentException ignored) { }
+        }
+        toUnpress.clear();
+        _waitForRelease.clear();
+    }
+
     public void forceLook(float yaw, float pitch) {
         if (MinecraftClient.getInstance().player != null) {
             MinecraftClient.getInstance().player.setYaw(yaw);

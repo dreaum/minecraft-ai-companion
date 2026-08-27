@@ -6,6 +6,13 @@ import adris.altoclef.chains.*;
 import adris.altoclef.companion.CompanionSession;
 import adris.altoclef.companion.CompanionSafetyController;
 import adris.altoclef.companion.CompanionOrchestrator;
+import adris.altoclef.agent.AgentAuditLog;
+import adris.altoclef.agent.AgentStore;
+import adris.altoclef.agent.AgentToolRegistry;
+import adris.altoclef.agent.TaskExperienceStore;
+import adris.altoclef.agent.TutorialIndex;
+import adris.altoclef.agent.AgentLoop;
+import adris.altoclef.agent.OpenAiCompatibleClient;
 import adris.altoclef.trackers.BlockScanner;
 import adris.altoclef.commandsystem.CommandExecutor;
 import adris.altoclef.commandsystem.TabCompleter;
@@ -88,6 +95,13 @@ public class AltoClef implements ModInitializer {
     private CompanionSession companionSession;
     private CompanionSafetyController companionSafetyController;
     private CompanionOrchestrator companionOrchestrator;
+    // Hermes-inspired local agent persistence and capability registry.
+    private AgentStore agentStore;
+    private AgentAuditLog agentAuditLog;
+    private AgentToolRegistry agentTools;
+    private TaskExperienceStore taskExperienceStore;
+    private TutorialIndex tutorialIndex;
+    private AgentLoop agentLoop;
     // Pausing
     private boolean paused = false;
     private Task storedTask;
@@ -164,6 +178,21 @@ public class AltoClef implements ModInitializer {
         companionSession = new CompanionSession();
         companionSafetyController = new CompanionSafetyController();
         companionOrchestrator = new CompanionOrchestrator(this, companionSession);
+        java.nio.file.Path agentRoot = MinecraftClient.getInstance().runDirectory.toPath().resolve("agent");
+        agentStore = new AgentStore(agentRoot);
+        agentAuditLog = new AgentAuditLog(agentRoot);
+        agentTools = new AgentToolRegistry();
+        adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
+        taskExperienceStore = new TaskExperienceStore(agentStore);
+        String llmUrl = System.getProperty("minecraft.agent.llm.url", "http://127.0.0.1:11434");
+        String llmModel = System.getProperty("minecraft.agent.llm.model", "llama3.1");
+        agentLoop = new AgentLoop(new OpenAiCompatibleClient(llmUrl, llmModel, System.getProperty("minecraft.agent.llm.key", ""), java.time.Duration.ofSeconds(60)), agentTools, agentAuditLog);
+        try {
+            tutorialIndex = new TutorialIndex(agentStore);
+            tutorialIndex.rebuild();
+        } catch (java.sql.SQLException | java.io.IOException exception) {
+            log("Agent tutorial index unavailable: " + exception.getMessage());
+        }
         initializeCommands();
 
         // Load settings
@@ -219,6 +248,8 @@ public class AltoClef implements ModInitializer {
     // Client tick
     private void onClientTick() {
         runEnqueuedPostInits();
+
+        if (agentLoop != null) agentLoop.tick();
 
         inputControls.onTickPre();
 
@@ -457,6 +488,13 @@ public class AltoClef implements ModInitializer {
     public Butler getButler() {
         return butler;
     }
+
+    public AgentStore getAgentStore() { return agentStore; }
+    public AgentAuditLog getAgentAuditLog() { return agentAuditLog; }
+    public AgentToolRegistry getAgentTools() { return agentTools; }
+    public TaskExperienceStore getTaskExperienceStore() { return taskExperienceStore; }
+    public TutorialIndex getTutorialIndex() { return tutorialIndex; }
+    public AgentLoop getAgentLoop() { return agentLoop; }
 
     public CompanionSession getCompanionSession() {
         return companionSession;

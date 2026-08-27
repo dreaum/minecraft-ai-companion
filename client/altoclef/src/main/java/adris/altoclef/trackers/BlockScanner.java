@@ -293,6 +293,16 @@ public class BlockScanner {
         }).start();
     }
 
+    /**
+     * Refreshes the small radius around the player synchronously. Resource
+     * tasks use this before choosing a target so a newly loaded nearby block
+     * cannot be missed while the background chunk scan is catching up.
+     */
+    public void refreshNearbyBlocks() {
+        if (mod.getWorld() == null || mod.getPlayer() == null) return;
+        scanCloseBlocks();
+    }
+
     private void scanCloseBlocks() {
         for (Map.Entry<Block, HashSet<BlockPos>> entry : cachedScannedBlocks.entrySet()) {
             if (!trackedBlocks.containsKey(entry.getKey())) {

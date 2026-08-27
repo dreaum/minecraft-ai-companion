@@ -9,6 +9,10 @@ import adris.altoclef.ui.MessagePriority;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.world.World;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.List;
+import adris.altoclef.agent.ToolResult;
 
 import java.util.Objects;
 
@@ -21,6 +25,8 @@ import java.util.Objects;
  * and depends on the "useButlerWhitelist" and "useButlerBlacklist" settings in "altoclef_settings.json"
  */
 public class Butler {
+
+    private static final ObjectMapper AGENT_JSON = new ObjectMapper();
 
     private static final String BUTLER_MESSAGE_START = "` ";
 
@@ -98,6 +104,10 @@ public class Butler {
         }
 
         if (userAuth.isUserAuthorized(username)) {
+            if (message.regionMatches(true, 0, "ai ", 0, 3)) {
+                receiveAgentRequest(username, message.substring(3).trim());
+                return;
+            }
             mod.getCompanionOrchestrator().handle(username, message,
                     reply -> sendWhisper(username, reply, MessagePriority.TIMELY));
         } else {
@@ -108,6 +118,18 @@ public class Butler {
                 sendWhisper(username, ButlerConfig.getInstance().failedAuthorizationResposne.replace("{from}", username), MessagePriority.UNAUTHORIZED);
             }
         }
+    }
+
+    private void receiveAgentRequest(String username, String request) {
+        if (request.isBlank()) { sendWhisper(username, "AI request is empty.", MessagePriority.TIMELY); return; }
+        ObjectNode system = AGENT_JSON.createObjectNode(); system.put("role", "system");
+        system.put("content", "You control Minecraft through registered tools. Return only structured tool calls. Observe before acting.");
+        ObjectNode user = AGENT_JSON.createObjectNode(); user.put("role", "user"); user.put("content", request);
+        sendWhisper(username, "AI request accepted.", MessagePriority.TIMELY);
+        mod.getAgentLoop().submit(List.of(system, user), result -> {
+            String text = result.ok() ? "AI tool " + result.status() + "." : "AI failed: " + result.error();
+            sendWhisper(username, text, result.ok() ? MessagePriority.TIMELY : MessagePriority.ASAP);
+        });
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
@@ -181,7 +203,11 @@ public class Butler {
         }
     }
 
-    private void sendWhisper(String username, String message, MessagePriority priority) {
+    public void sendTo(String username, String message, MessagePriority priority) {
       mod.getMessageSender().enqueueWhisper(username, BUTLER_MESSAGE_START + message, priority);
+    }
+
+    private void sendWhisper(String username, String message, MessagePriority priority) {
+        sendTo(username, message, priority);
     }
 }

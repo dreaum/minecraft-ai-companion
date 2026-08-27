@@ -212,6 +212,9 @@ public class MineAndCollectTask extends ResourceTask {
         }
 
         public static Pair<Double,Optional<BlockPos> > getClosestBlock(AltoClef mod,Vec3d pos ,Block... blocks) {
+            // The async scanner may not have published the current nearby
+            // chunks yet. Refresh the player-radius cache before searching.
+            mod.getBlockScanner().refreshNearbyBlocks();
             Optional<BlockPos> closestBlock = mod.getBlockScanner().getNearestBlock(pos, check -> {
 
                 if (mod.getBlockScanner().isUnreachable(check)) return false;

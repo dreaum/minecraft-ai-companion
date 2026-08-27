@@ -143,6 +143,7 @@ public final class CompanionOrchestrator {
             mod.runUserTask(task, () -> finished(running.sequence()));
         } catch (RuntimeException exception) {
             active = null;
+            mod.getTaskExperienceStore().record(running.intent().describe(), "failed", exception.getMessage(), true);
             running.reply().accept("TASK FAILED: " + exception.getMessage());
             startNext();
         }
@@ -158,6 +159,7 @@ public final class CompanionOrchestrator {
         }
         CompanionIntentQueue.Entry completed = active;
         active = null;
+        mod.getTaskExperienceStore().record(completed.intent().describe(), "completed", null, false);
         if (completed.intent().type() != CompanionIntent.Type.PROTECT) {
             completed.reply().accept("Finished: " + completed.intent().describe() + ".");
         }
