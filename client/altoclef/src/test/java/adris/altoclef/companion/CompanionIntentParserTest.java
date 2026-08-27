@@ -39,4 +39,12 @@ class CompanionIntentParserTest {
                 > CompanionIntent.target(CompanionIntent.Type.COLLECT, "iron_ingot", 1).priority());
         assertTrue(CompanionIntent.simple(CompanionIntent.Type.STATUS).isReadOnly());
     }
+
+    @Test
+    void preservesTheRequestedAttackCount() {
+        CompanionIntent attack = CompanionIntentParser.parse("attack zombie 3").intent().orElseThrow();
+        assertEquals(CompanionIntent.Type.ATTACK, attack.type());
+        assertEquals("zombie", attack.target());
+        assertEquals(3, attack.count());
+    }
 }
