@@ -17,8 +17,9 @@ public final class CompanionSafetyController {
                 || player.isSwimming() || player.isClimbing();
         boolean monitoring = mod.getCompanionSession().isMovementActive()
                 || mod.getCompanionSession().getState() == CompanionState.SAFETY_PAUSE;
-        CompanionSafetyRules.evaluate(monitoring, player.isInLava(), player.getHealth(), safelyGrounded,
-                        player.getVelocity().y)
+        CompanionSafetyRules.evaluate(monitoring, player.isInLava(), player.isOnFire(), player.getHealth(),
+                        player.getHungerManager().getFoodLevel(), player.isSubmergedInWater(), player.getAir(),
+                        player.getMaxAir(), player.isInsideWall(), safelyGrounded, player.getVelocity().y)
                 .ifPresentOrElse(reason -> {
                     if (mod.getCompanionSession().getState() != CompanionState.SAFETY_PAUSE) {
                         mod.getCompanionOrchestrator().safetyPause(reason);
