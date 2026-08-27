@@ -1,0 +1,5 @@
+This project incorporates ideas and adapted implementation from EasyAI-Minecraft
+(https://github.com/leotang0760/EasyAI-Minecraft), Copyright (c) 2026 EasyAI-Minecraft Team.
+
+The original project is distributed under the MIT License. The adapted source
+in this project remains subject to the MIT License and this attribution.

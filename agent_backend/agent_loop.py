@@ -70,10 +70,13 @@ class AgentLoop:
         self.pending = {}
         self.max_followup_turns = 8
         self.followup_turns = 0
+        self.latest_observation = {}
         self.log = logging.getLogger("agent")
 
     async def request(self, user, text):
         self.followup_turns = 0
+        if self.latest_observation:
+            self.messages.append({"role":"system", "content":"CURRENT observe_world (authoritative; use it for the next decision): " + json.dumps(self.latest_observation, ensure_ascii=False)})
         self.messages.append({"role":"user", "content": text})
         try:
             direct = direct_companion_call(text)
@@ -139,6 +142,10 @@ class AgentLoop:
 
         except Exception as exc:
             await self.send({"type":"agent_error", "user":user, "error":str(exc)})
+
+    def observe(self, observation):
+        if isinstance(observation, dict):
+            self.latest_observation = observation
 
     @staticmethod
     def _response_text(response):

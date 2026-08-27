@@ -43,6 +43,7 @@ async def run():
                 if message.get("type") == "hello": state["tools"] = message.get("tools") or []; loop.tools = state["tools"]; await send({"type":"hello_ack"})
                 elif message.get("type") == "user_request": await loop.request(message.get("user", "owner"), message.get("request", ""))
                 elif message.get("type") == "tool_result": await loop.result(message)
+                elif message.get("type") == "world_event": loop.observe(message.get("observation") or {})
         finally: state["connected"] = False
     async def health(reader, writer):
         try:

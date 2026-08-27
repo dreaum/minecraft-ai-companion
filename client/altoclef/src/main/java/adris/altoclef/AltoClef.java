@@ -6,6 +6,7 @@ import adris.altoclef.chains.*;
 import adris.altoclef.companion.CompanionSession;
 import adris.altoclef.companion.CompanionSafetyController;
 import adris.altoclef.companion.CompanionOrchestrator;
+import adris.altoclef.companion.EasyAISafetyController;
 import adris.altoclef.agent.AgentAuditLog;
 import adris.altoclef.agent.AgentStore;
 import adris.altoclef.agent.AgentToolRegistry;
@@ -94,6 +95,7 @@ public class AltoClef implements ModInitializer {
     private CompanionSession companionSession;
     private CompanionSafetyController companionSafetyController;
     private CompanionOrchestrator companionOrchestrator;
+    private EasyAISafetyController easyAISafetyController;
     // Hermes-inspired local agent persistence and capability registry.
     private AgentStore agentStore;
     private AgentAuditLog agentAuditLog;
@@ -176,6 +178,7 @@ public class AltoClef implements ModInitializer {
         butler = new Butler(this);
         companionSession = new CompanionSession();
         companionSafetyController = new CompanionSafetyController();
+        easyAISafetyController = new EasyAISafetyController();
         companionOrchestrator = new CompanionOrchestrator(this, companionSession);
         java.nio.file.Path agentRoot = MinecraftClient.getInstance().runDirectory.toPath().resolve("agent");
         agentStore = new AgentStore(agentRoot);
@@ -251,6 +254,9 @@ public class AltoClef implements ModInitializer {
 
         inputControls.onTickPre();
 
+        // EasyAI-inspired reflexes run before normal companion tasks and never
+        // wait for the Python agent.
+        easyAISafetyController.tick(this);
         companionSafetyController.tick(this);
 
         // Cancel shortcut

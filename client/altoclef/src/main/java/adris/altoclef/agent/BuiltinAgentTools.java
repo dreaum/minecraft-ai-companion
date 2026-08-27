@@ -16,6 +16,8 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.Hand;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.mob.HostileEntity;
 
 import java.util.Locale;
 
@@ -25,7 +27,7 @@ public final class BuiltinAgentTools {
     private BuiltinAgentTools() {}
 
     public static void register(AltoClef mod, AgentToolRegistry registry) {
-        registry.register(new ObserveWorldTool());
+        registry.register(new ObserveWorldTool(mod));
         registry.register(new StopAllTool(mod));
         registry.register(new PressKeyTool(mod));
         registry.register(new LookTool(mod));
@@ -51,6 +53,8 @@ public final class BuiltinAgentTools {
     }
 
     private static final class ObserveWorldTool implements AgentTool {
+        private final AltoClef mod;
+        ObserveWorldTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "observe_world"; }
         public JsonNode schema() { return BuiltinAgentTools.schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) {
@@ -60,9 +64,30 @@ public final class BuiltinAgentTools {
             ObjectNode o = JSON.createObjectNode();
             o.put("dimension", client.world.getRegistryKey().getValue().toString());
             o.put("x", p.getX()); o.put("y", p.getY()); o.put("z", p.getZ());
+            o.put("yaw", p.getYaw()); o.put("pitch", p.getPitch());
+            o.put("vx", p.getVelocity().x); o.put("vy", p.getVelocity().y); o.put("vz", p.getVelocity().z);
             o.put("health", p.getHealth()); o.put("food", p.getHungerManager().getFoodLevel());
             o.put("air", p.getAir()); o.put("submerged", p.isSubmergedInWater());
-            o.put("on_ground", p.isOnGround());
+            o.put("max_air", p.getMaxAir()); o.put("on_ground", p.isOnGround());
+            o.put("on_fire", p.isOnFire()); o.put("in_lava", p.isInLava());
+            o.put("fall_distance", p.fallDistance); o.put("inside_wall", p.isInsideWall());
+            if (mod.getButler() != null && mod.getButler().getCurrentUser() != null)
+                o.put("owner", mod.getButler().getCurrentUser());
+            var nearbyHostiles = o.putArray("nearby_hostiles");
+            for (HostileEntity entity : p.getWorld().getEntitiesByClass(HostileEntity.class,
+                    new net.minecraft.util.math.Box(p.getBlockPos()).expand(16), e -> e.isAlive())) {
+                var item = nearbyHostiles.addObject(); item.put("id", entity.getId());
+                item.put("type", entity.getType().toString()); item.put("name", entity.getName().getString());
+                item.put("x", entity.getX()); item.put("y", entity.getY()); item.put("z", entity.getZ());
+                item.put("distance", entity.distanceTo(p));
+            }
+            var nearbyDrops = o.putArray("nearby_drops");
+            for (ItemEntity entity : p.getWorld().getEntitiesByClass(ItemEntity.class,
+                    new net.minecraft.util.math.Box(p.getBlockPos()).expand(8), Entity::isAlive)) {
+                var item = nearbyDrops.addObject(); item.put("id", entity.getId());
+                item.put("item", entity.getStack().getItem().toString()); item.put("count", entity.getStack().getCount());
+                item.put("distance", entity.distanceTo(p));
+            }
             var inv = o.putObject("inventory");
             for (int i = 0; i < p.getInventory().size(); i++) {
                 ItemStack stack = p.getInventory().getStack(i);

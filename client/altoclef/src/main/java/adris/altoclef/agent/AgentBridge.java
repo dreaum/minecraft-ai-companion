@@ -35,6 +35,7 @@ public final class AgentBridge implements WebSocket.Listener {
     private String partial = "";
     private String token = "";
     private boolean connected;
+    private boolean handshakeComplete;
     private long tickCounter;
 
     public AgentBridge(AltoClef mod, AgentToolRegistry tools, AgentAuditLog audit) {
@@ -79,9 +80,10 @@ public final class AgentBridge implements WebSocket.Listener {
 
     private static String rootCause(Throwable e) { Throwable c = e; while (c.getCause() != null) c = c.getCause(); return c.getMessage() == null ? c.toString() : c.getMessage(); }
 
-    public boolean isConnected() { return connected && socket != null; }
+    public boolean isConnected() { return connected && handshakeComplete && socket != null; }
 
     public void submitUserRequest(String user, String request) {
+        if (!isConnected()) return;
         ObjectNode msg = JSON.createObjectNode(); msg.put("type", "user_request"); msg.put("id", UUID.randomUUID().toString()); msg.put("user", user); msg.put("request", request); send(msg);
     }
 
@@ -94,8 +96,18 @@ public final class AgentBridge implements WebSocket.Listener {
         JsonNode message;
         synchronized (inbound) { message = inbound.poll(); }
         if (message == null) return;
-        if ("tool_call".equals(message.path("type").asText())) {
+        if ("hello_ack".equals(message.path("type").asText())) {
+            if (message.path("protocol_version").asInt(1) != 1) {
+                mod.log("Agent bridge protocol mismatch");
+                closeSocket();
+            } else handshakeComplete = true;
+        } else if ("tool_call".equals(message.path("type").asText())) {
+            if (!handshakeComplete) return;
             String id = message.path("id").asText("");
+            if (id.isBlank() || !message.path("arguments").isObject()) {
+                mod.log("Rejected malformed Agent tool call");
+                return;
+            }
             String caller = message.path("user").asText("python");
             ToolResult result = tools.callAndAudit(caller, message.path("tool").asText(""), message.path("arguments"), audit);
             ObjectNode reply = JSON.createObjectNode(); reply.put("type", "tool_result"); reply.put("id", id); reply.setAll(result.toJson()); send(reply);
@@ -119,13 +131,19 @@ public final class AgentBridge implements WebSocket.Listener {
     }
 
     public void close() {
+        handshakeComplete = false;
         mod.stopTasks(); mod.getInputControls().releaseAll();
-        if (socket != null) socket.sendClose(WebSocket.NORMAL_CLOSURE, "client stopping");
+        closeSocket();
         if (backend != null && backend.isAlive()) backend.destroy();
     }
 
+    private void closeSocket() {
+        if (socket != null) socket.sendClose(WebSocket.NORMAL_CLOSURE, "client stopping");
+        socket = null;
+    }
+
     @Override public void onOpen(WebSocket webSocket) {
-        connected = true; socket = webSocket; webSocket.request(1);
+        connected = true; handshakeComplete = false; socket = webSocket; webSocket.request(1);
         ObjectNode hello = JSON.createObjectNode(); hello.put("type", "hello"); hello.put("protocol_version", 1);
         ArrayNode schemas = hello.putArray("tools"); for (AgentTool tool : tools.all()) { ObjectNode t = schemas.addObject(); t.put("name", tool.name()); t.set("schema", tool.schema()); }
         send(hello);
@@ -135,6 +153,6 @@ public final class AgentBridge implements WebSocket.Listener {
         if (last) { try { synchronized (inbound) { inbound.add(JSON.readTree(partial)); } } catch (Exception e) { mod.log("Agent protocol JSON error: " + e.getMessage()); } partial = ""; }
         webSocket.request(1); return null;
     }
-    @Override public void onError(WebSocket webSocket, Throwable error) { connected = false; mod.stopTasks(); mod.getInputControls().releaseAll(); mod.log("Agent bridge error: " + error.getMessage()); }
-    @Override public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) { connected = false; mod.stopTasks(); mod.getInputControls().releaseAll(); return null; }
+    @Override public void onError(WebSocket webSocket, Throwable error) { connected = false; handshakeComplete = false; mod.stopTasks(); mod.getInputControls().releaseAll(); mod.log("Agent bridge error: " + error.getMessage()); }
+    @Override public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) { connected = false; handshakeComplete = false; socket = null; mod.stopTasks(); mod.getInputControls().releaseAll(); return null; }
 }
