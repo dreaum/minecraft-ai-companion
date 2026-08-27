@@ -52,7 +52,7 @@ public final class BuiltinAgentTools {
 
     private static final class ObserveWorldTool implements AgentTool {
         public String name() { return "observe_world"; }
-        public JsonNode schema() { return schema("{}", "[]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) {
             MinecraftClient client = MinecraftClient.getInstance();
             ClientPlayerEntity p = client.player;
@@ -76,7 +76,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         StopAllTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "stop_all"; }
-        public JsonNode schema() { return schema("{}", "[]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) { mod.cancelUserTask(); mod.getInputControls().releaseAll(); return ToolResult.completed(JSON.createObjectNode().put("stopped", true)); }
     }
 
@@ -84,7 +84,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         PressKeyTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "press_key"; }
-        public JsonNode schema() { return schema("{\"key\":{\"type\":\"string\"},\"action\":{\"type\":\"string\",\"enum\":[\"press\",\"hold\",\"release\"]}}", "[\"key\",\"action\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"key\":{\"type\":\"string\"},\"action\":{\"type\":\"string\",\"enum\":[\"press\",\"hold\",\"release\"]}}", "[\"key\",\"action\"]"); }
         public ToolResult execute(JsonNode args) {
             try {
                 Input key = Input.valueOf(args.path("key").asText().toUpperCase(Locale.ROOT));
@@ -99,7 +99,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         LookTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "look"; }
-        public JsonNode schema() { return schema("{\"yaw\":{\"type\":\"number\"},\"pitch\":{\"type\":\"number\"}}", "[\"yaw\",\"pitch\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"yaw\":{\"type\":\"number\"},\"pitch\":{\"type\":\"number\"}}", "[\"yaw\",\"pitch\"]"); }
         public ToolResult execute(JsonNode args) { mod.getInputControls().forceLook((float) args.path("yaw").asDouble(), (float) args.path("pitch").asDouble()); return ToolResult.completed(JSON.createObjectNode().put("yaw", args.path("yaw").asDouble()).put("pitch", args.path("pitch").asDouble())); }
     }
 
@@ -107,7 +107,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         AltoClefTaskTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "altoclef_task"; }
-        public JsonNode schema() { return schema("{\"command\":{\"type\":\"string\",\"description\":\"One existing companion command\"}}", "[\"command\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"command\":{\"type\":\"string\",\"description\":\"One existing companion command\"}}", "[\"command\"]"); }
         public ToolResult execute(JsonNode args) {
             String owner = mod.getButler().getCurrentUser();
             if (owner == null) return ToolResult.failed("no authorized owner session");
@@ -123,7 +123,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         BaritoneGoalTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "baritone_goal"; }
-        public JsonNode schema() { return schema("{\"x\":{\"type\":\"integer\"},\"y\":{\"type\":\"integer\"},\"z\":{\"type\":\"integer\"}}", "[\"x\",\"y\",\"z\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"x\":{\"type\":\"integer\"},\"y\":{\"type\":\"integer\"},\"z\":{\"type\":\"integer\"}}", "[\"x\",\"y\",\"z\"]"); }
         public ToolResult execute(JsonNode args) {
             if (mod.getPlayer() == null) return ToolResult.failed("not in a world");
             var goal = new GoalBlock(new BlockPos(args.path("x").asInt(), args.path("y").asInt(), args.path("z").asInt()));
@@ -136,7 +136,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         ChatPrivateTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "chat_private"; }
-        public JsonNode schema() { return schema("{\"message\":{\"type\":\"string\"}}", "[\"message\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"message\":{\"type\":\"string\"}}", "[\"message\"]"); }
         public ToolResult execute(JsonNode args) {
             String owner = mod.getButler().getCurrentUser();
             if (owner == null) return ToolResult.failed("no authorized owner session");
@@ -149,7 +149,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         MoveTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "move"; }
-        public JsonNode schema() { return schema("{\"direction\":{\"type\":\"string\",\"enum\":[\"MOVE_FORWARD\",\"MOVE_BACK\",\"MOVE_LEFT\",\"MOVE_RIGHT\",\"JUMP\",\"SNEAK\",\"SPRINT\"]},\"action\":{\"type\":\"string\",\"enum\":[\"hold\",\"release\",\"press\"]}}", "[\"direction\",\"action\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"direction\":{\"type\":\"string\",\"enum\":[\"MOVE_FORWARD\",\"MOVE_BACK\",\"MOVE_LEFT\",\"MOVE_RIGHT\",\"JUMP\",\"SNEAK\",\"SPRINT\"]},\"action\":{\"type\":\"string\",\"enum\":[\"hold\",\"release\",\"press\"]}}", "[\"direction\",\"action\"]"); }
         public ToolResult execute(JsonNode args) {
             try {
                 Input key = Input.valueOf(args.path("direction").asText().toUpperCase(Locale.ROOT));
@@ -162,7 +162,7 @@ public final class BuiltinAgentTools {
 
     private static final class InventoryTool implements AgentTool {
         public String name() { return "inventory"; }
-        public JsonNode schema() { return schema("{}", "[]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) {
             ClientPlayerEntity p = MinecraftClient.getInstance().player;
             if (p == null) return ToolResult.failed("not in a world");
@@ -176,7 +176,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         AttackEntityTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "attack_entity"; }
-        public JsonNode schema() { return schema("{\"entity_id\":{\"type\":\"integer\"}}", "[\"entity_id\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"entity_id\":{\"type\":\"integer\"}}", "[\"entity_id\"]"); }
         public ToolResult execute(JsonNode args) {
             MinecraftClient client = MinecraftClient.getInstance(); Entity entity = client.world == null ? null : client.world.getEntityById(args.path("entity_id").asInt());
             if (entity == null) return ToolResult.failed("entity not found");
@@ -190,7 +190,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         InteractBlockTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "interact_block"; }
-        public JsonNode schema() { return schema("{\"x\":{\"type\":\"integer\"},\"y\":{\"type\":\"integer\"},\"z\":{\"type\":\"integer\"},\"face\":{\"type\":\"string\"}}", "[\"x\",\"y\",\"z\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"x\":{\"type\":\"integer\"},\"y\":{\"type\":\"integer\"},\"z\":{\"type\":\"integer\"},\"face\":{\"type\":\"string\"}}", "[\"x\",\"y\",\"z\"]"); }
         public ToolResult execute(JsonNode args) {
             if (MinecraftClient.getInstance().player == null || MinecraftClient.getInstance().interactionManager == null) return ToolResult.failed("not in a world");
             BlockPos pos = new BlockPos(args.path("x").asInt(), args.path("y").asInt(), args.path("z").asInt());
@@ -205,7 +205,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         BaritoneCancelTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "baritone_cancel"; }
-        public JsonNode schema() { return schema("{}", "[]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) { mod.getClientBaritone().getPathingBehavior().forceCancel(); mod.getClientBaritone().getCustomGoalProcess().setGoal(null); return ToolResult.completed(JSON.createObjectNode().put("cancelled", true)); }
     }
 
@@ -213,7 +213,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         TutorialSearchTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "search_tutorial"; }
-        public JsonNode schema() { return schema("{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"}}", "[\"query\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"}}", "[\"query\"]"); }
         public ToolResult execute(JsonNode args) {
             if (mod.getTutorialIndex() == null) return ToolResult.failed("tutorial index unavailable");
             try { var hits = mod.getTutorialIndex().search(args.path("query").asText(), args.path("limit").asInt(5)); var out = JSON.createArrayNode(); for (var hit : hits) out.add(JSON.createObjectNode().put("id", hit.id()).put("title", hit.title()).put("path", hit.path()).put("snippet", hit.snippet())); return ToolResult.completed(out); }
@@ -225,7 +225,7 @@ public final class BuiltinAgentTools {
         private final AltoClef mod;
         TutorialReadTool(AltoClef mod) { this.mod = mod; }
         public String name() { return "read_tutorial"; }
-        public JsonNode schema() { return schema("{\"id\":{\"type\":\"string\"}}", "[\"id\"]"); }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"id\":{\"type\":\"string\"}}", "[\"id\"]"); }
         public ToolResult execute(JsonNode args) {
             if (mod.getTutorialIndex() == null) return ToolResult.failed("tutorial index unavailable");
             try { return ToolResult.completed(JSON.createObjectNode().put("id", args.path("id").asText()).put("content", mod.getTutorialIndex().read(args.path("id").asText()))); }

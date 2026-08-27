@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /** Local Markdown catalog with SQLite FTS indexing when the JDBC driver is present. */
@@ -68,20 +69,23 @@ public final class TutorialIndex implements AutoCloseable {
             // Two-character n-grams provide useful fallback keywords while the
             // parameterized query below keeps the input safe.
             if (normalized.codePoints().allMatch(c -> c > 0x7f) && normalized.length() <= 32) {
-                for (int i = 0; i + 2 <= normalized.length(); i++) terms.add(normalized.substring(i, i + 2));
+                // The final words usually name the requested item (for example
+                // "获取橡木原木" ends with "原木"), so search them before broad
+                // leading verbs such as "获取".
+                for (int i = normalized.length() - 2; i >= 0; i--) terms.add(normalized.substring(i, i + 2));
             }
-            String predicates = String.join(" OR ", terms.stream().map(t -> "lower(content) LIKE lower(?) OR lower(title) LIKE lower(?)").toList());
-            try (PreparedStatement p = connection.prepareStatement("SELECT id,title,path,content FROM tutorials WHERE " + predicates + " LIMIT ?")) {
-                int parameter = 1;
-                for (String term : terms) {
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            for (String term : terms) {
+                if (hits.size() >= boundedLimit) break;
+                try (PreparedStatement p = connection.prepareStatement("SELECT id,title,path,content FROM tutorials WHERE lower(content) LIKE lower(?) OR lower(title) LIKE lower(?)")) {
                     String pattern = "%" + term + "%";
-                    p.setString(parameter++, pattern); p.setString(parameter++, pattern);
-                }
-                p.setInt(parameter, boundedLimit);
-                try (ResultSet r = p.executeQuery()) {
-                    while (r.next()) {
-                        String content = r.getString(4).replaceAll("\\s+", " ");
-                        hits.add(new Hit(r.getString(1), r.getString(2), r.getString(3), content.substring(0, Math.min(content.length(), 240))));
+                    p.setString(1, pattern); p.setString(2, pattern);
+                    try (ResultSet r = p.executeQuery()) {
+                        while (r.next() && hits.size() < boundedLimit) {
+                            if (!seen.add(r.getString(1))) continue;
+                            String content = r.getString(4).replaceAll("\\s+", " ");
+                            hits.add(new Hit(r.getString(1), r.getString(2), r.getString(3), content.substring(0, Math.min(content.length(), 240))));
+                        }
                     }
                 }
             }
