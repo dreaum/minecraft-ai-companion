@@ -10,6 +10,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.world.World;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Objects;
 
 /**
@@ -31,6 +34,7 @@ public class Butler {
     private final UserAuth userAuth;
 
     private String currentUser = null;
+    private final Deque<String> recentPublicMessages = new ArrayDeque<>();
 
     // Utility variables for command logic
     private boolean commandInstantRan = false;
@@ -54,6 +58,7 @@ public class Butler {
             String sender = evt.senderName();
             MessageType messageType = evt.messageType();
             String receiver = mod.getPlayer().getName().getString();
+            if (isRecentPublicMessage(message)) return;
             if (sender != null && !Objects.equals(sender, receiver)
                     && (shouldAccept(messageType) || isAuthorizedPublic(sender, messageType))) {
                 String wholeMessage = sender + " " + receiver + " " + message;
@@ -204,9 +209,7 @@ public class Butler {
 
     public void sendTo(String username, String message, MessagePriority priority) {
       // Minecraft's serverbound chat/whisper payload is limited to 256 chars.
-      String safe = message == null ? "" : message;
-      int max = 256 - BUTLER_MESSAGE_START.length();
-      if (safe.length() > max) safe = safe.substring(0, Math.max(0, max - 3)) + "...";
+      String safe = truncateForChat(message, 240 - BUTLER_MESSAGE_START.getBytes(StandardCharsets.UTF_8).length);
       mod.getMessageSender().enqueueWhisper(username, BUTLER_MESSAGE_START + safe, priority);
     }
 
@@ -219,8 +222,33 @@ public class Butler {
     }
 
     public void sendPublic(String message, MessagePriority priority) {
-        String safe = message == null ? "" : message;
-        if (safe.length() > 256) safe = safe.substring(0, 253) + "...";
+        String safe = truncateForChat(message, 240);
+        synchronized (recentPublicMessages) {
+            recentPublicMessages.addLast(safe);
+            while (recentPublicMessages.size() > 8) recentPublicMessages.removeFirst();
+        }
         mod.getMessageSender().enqueueChat(safe, priority);
+    }
+
+    private boolean isRecentPublicMessage(String message) {
+        synchronized (recentPublicMessages) {
+            return recentPublicMessages.removeFirstOccurrence(message);
+        }
+    }
+
+    private static String truncateForChat(String message, int maxUtf8Bytes) {
+        if (message == null || message.isEmpty()) return "";
+        String suffix = "...";
+        if (message.getBytes(StandardCharsets.UTF_8).length <= maxUtf8Bytes) return message;
+        int limit = maxUtf8Bytes - suffix.length();
+        StringBuilder result = new StringBuilder();
+        for (int offset = 0; offset < message.length();) {
+            int codePoint = message.codePointAt(offset);
+            String character = new String(Character.toChars(codePoint));
+            if (result.toString().getBytes(StandardCharsets.UTF_8).length + character.getBytes(StandardCharsets.UTF_8).length > limit) break;
+            result.append(character);
+            offset += Character.charCount(codePoint);
+        }
+        return result + suffix;
     }
 }
