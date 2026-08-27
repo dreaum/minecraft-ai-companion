@@ -44,6 +44,16 @@ jobs:
           path: client/altoclef/build.log
           if-no-files-found: warn
 
+      - name: Print build diagnostics
+        if: always()
+        run: |
+          if [ -f build.log ]; then
+            echo "===== Gradle build.log (last 200 lines) ====="
+            tail -n 200 build.log
+          else
+            echo "build.log was not created"
+          fi
+
       - name: Upload the remapped mod jar
         uses: actions/upload-artifact@v4
         with:
