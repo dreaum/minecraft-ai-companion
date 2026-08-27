@@ -553,6 +553,10 @@ public class AltoClef implements ModInitializer {
         return inputControls;
     }
 
+    public PlayerExtraController getPlayerExtraController() {
+        return extraController;
+    }
+
     /**
      * Run a user task
      */

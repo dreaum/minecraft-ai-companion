@@ -11,6 +11,11 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Hand;
+import net.minecraft.entity.Entity;
 
 import java.util.Locale;
 
@@ -27,6 +32,11 @@ public final class BuiltinAgentTools {
         registry.register(new AltoClefTaskTool(mod));
         registry.register(new BaritoneGoalTool(mod));
         registry.register(new ChatPrivateTool(mod));
+        registry.register(new MoveTool(mod));
+        registry.register(new InventoryTool());
+        registry.register(new AttackEntityTool(mod));
+        registry.register(new InteractBlockTool(mod));
+        registry.register(new BaritoneCancelTool(mod));
     }
 
     private static ObjectNode schema(String properties, String required) {
@@ -131,5 +141,69 @@ public final class BuiltinAgentTools {
             mod.getButler().sendTo(owner, args.path("message").asText(""), MessagePriority.TIMELY);
             return ToolResult.completed(JSON.createObjectNode().put("sent", true));
         }
+    }
+
+    private static final class MoveTool implements AgentTool {
+        private final AltoClef mod;
+        MoveTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "move"; }
+        public JsonNode schema() { return schema("{\"direction\":{\"type\":\"string\",\"enum\":[\"MOVE_FORWARD\",\"MOVE_BACK\",\"MOVE_LEFT\",\"MOVE_RIGHT\",\"JUMP\",\"SNEAK\",\"SPRINT\"]},\"action\":{\"type\":\"string\",\"enum\":[\"hold\",\"release\",\"press\"]}}", "[\"direction\",\"action\"]"); }
+        public ToolResult execute(JsonNode args) {
+            try {
+                Input key = Input.valueOf(args.path("direction").asText().toUpperCase(Locale.ROOT));
+                String action = args.path("action").asText("press").toLowerCase(Locale.ROOT);
+                switch (action) { case "hold" -> mod.getInputControls().hold(key); case "release" -> mod.getInputControls().release(key); case "press" -> mod.getInputControls().tryPress(key); default -> { return ToolResult.failed("invalid action"); } }
+                return ToolResult.completed(JSON.createObjectNode().put("direction", key.name()).put("action", action));
+            } catch (IllegalArgumentException e) { return ToolResult.failed("invalid direction"); }
+        }
+    }
+
+    private static final class InventoryTool implements AgentTool {
+        public String name() { return "inventory"; }
+        public JsonNode schema() { return schema("{}", "[]"); }
+        public ToolResult execute(JsonNode args) {
+            ClientPlayerEntity p = MinecraftClient.getInstance().player;
+            if (p == null) return ToolResult.failed("not in a world");
+            ObjectNode out = JSON.createObjectNode();
+            for (int i = 0; i < p.getInventory().size(); i++) { ItemStack s = p.getInventory().getStack(i); if (!s.isEmpty()) out.put(s.getItem().toString(), out.path(s.getItem().toString()).asInt(0) + s.getCount()); }
+            return ToolResult.completed(out);
+        }
+    }
+
+    private static final class AttackEntityTool implements AgentTool {
+        private final AltoClef mod;
+        AttackEntityTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "attack_entity"; }
+        public JsonNode schema() { return schema("{\"entity_id\":{\"type\":\"integer\"}}", "[\"entity_id\"]"); }
+        public ToolResult execute(JsonNode args) {
+            MinecraftClient client = MinecraftClient.getInstance(); Entity entity = client.world == null ? null : client.world.getEntityById(args.path("entity_id").asInt());
+            if (entity == null) return ToolResult.failed("entity not found");
+            if (!mod.getPlayer().isInRange(entity, mod.getModSettings().getEntityReachRange())) return ToolResult.failed("entity out of range");
+            mod.getPlayerExtraController().attack(entity);
+            return ToolResult.completed(JSON.createObjectNode().put("entity_id", entity.getId()));
+        }
+    }
+
+    private static final class InteractBlockTool implements AgentTool {
+        private final AltoClef mod;
+        InteractBlockTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "interact_block"; }
+        public JsonNode schema() { return schema("{\"x\":{\"type\":\"integer\"},\"y\":{\"type\":\"integer\"},\"z\":{\"type\":\"integer\"},\"face\":{\"type\":\"string\"}}", "[\"x\",\"y\",\"z\"]"); }
+        public ToolResult execute(JsonNode args) {
+            if (MinecraftClient.getInstance().player == null || MinecraftClient.getInstance().interactionManager == null) return ToolResult.failed("not in a world");
+            BlockPos pos = new BlockPos(args.path("x").asInt(), args.path("y").asInt(), args.path("z").asInt());
+            Direction face; try { face = Direction.valueOf(args.path("face").asText("UP").toUpperCase(Locale.ROOT)); } catch (IllegalArgumentException e) { face = Direction.UP; }
+            BlockHitResult hit = new BlockHitResult(Vec3d.ofCenter(pos), face, pos, false);
+            var result = MinecraftClient.getInstance().interactionManager.interactBlock(MinecraftClient.getInstance().player, Hand.MAIN_HAND, hit);
+            return ToolResult.completed(JSON.createObjectNode().put("result", result.name()));
+        }
+    }
+
+    private static final class BaritoneCancelTool implements AgentTool {
+        private final AltoClef mod;
+        BaritoneCancelTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "baritone_cancel"; }
+        public JsonNode schema() { return schema("{}", "[]"); }
+        public ToolResult execute(JsonNode args) { mod.getClientBaritone().getPathingBehavior().forceCancel(); mod.getClientBaritone().getCustomGoalProcess().setGoal(null); return ToolResult.completed(JSON.createObjectNode().put("cancelled", true)); }
     }
 }
