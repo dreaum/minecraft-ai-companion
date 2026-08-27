@@ -1,0 +1,26 @@
+name: Build Alto Clef
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client/altoclef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Build 1.20.1
+        run: ./gradlew :1.20.1:build --no-daemon --stacktrace
+      - name: Upload mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: altoclef-1.20.1
+          path: client/altoclef/versions/1.20.1/build/libs/*.jar

@@ -43,8 +43,11 @@ public record CompanionIntent(Type type, String target, int count, Integer x, In
     public int priority() {
         return switch (type) {
             case PROTECT -> 300;
+            // Explicit work commands must be able to interrupt a stale movement
+            // request (for example, COME stuck in a safety pause). Protection
+            // remains the only higher-priority mode.
+            case COLLECT, CRAFT, SMELT, ATTACK, GIVE -> 250;
             case GOTO, FOLLOW, COME, HOME -> 200;
-            case COLLECT, CRAFT, SMELT, ATTACK, GIVE -> 100;
             default -> 0;
         };
     }

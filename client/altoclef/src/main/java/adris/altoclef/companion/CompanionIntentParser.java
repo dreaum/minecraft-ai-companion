@@ -20,6 +20,10 @@ public final class CompanionIntentParser {
             return ParseResult.reject("Only one command is allowed per whisper.");
         }
         String[] parts = trimmed.split("\\s+");
+        if (parts.length > 1 && parts[0].equalsIgnoreCase("ai")) {
+            trimmed = trimmed.substring(parts[0].length()).trim();
+            parts = trimmed.split("\\s+");
+        }
         String verb = parts[0].toLowerCase(Locale.ROOT);
         return switch (verb) {
             case "follow" -> exact(parts, 1, CompanionIntent.simple(CompanionIntent.Type.FOLLOW));

@@ -35,6 +35,11 @@ _CATALOG_ALIASES = {}
 def direct_companion_call(text):
     """Map only unambiguous companion requests to the existing Java task surface."""
     normalized = " ".join(text.strip().lower().split())
+    # Chat users commonly prefix commands with "ai"; keep these commands
+    # deterministic so stop/collect reach Java instead of being delegated to
+    # the language model.
+    if normalized.startswith("ai "):
+        normalized = normalized[3:].strip()
     command = _DIRECT_COMMANDS.get(normalized)
     if command:
         return {"tool": "altoclef_task", "arguments": {"command": command}}
