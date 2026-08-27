@@ -13,6 +13,8 @@ import net.minecraft.world.World;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -35,6 +37,7 @@ public class Butler {
 
     private String currentUser = null;
     private final Deque<String> recentPublicMessages = new ArrayDeque<>();
+    private final Map<String, Long> recentPublicMessageTimes = new HashMap<>();
 
     // Utility variables for command logic
     private boolean commandInstantRan = false;
@@ -59,7 +62,9 @@ public class Butler {
             MessageType messageType = evt.messageType();
             String receiver = mod.getPlayer().getName().getString();
             if (isRecentPublicMessage(message)) return;
-            if (sender != null && !Objects.equals(sender, receiver)
+            // Servers may echo our own public chat with a differently-cased
+            // profile name. Never feed the companion's own output back in.
+            if (sender != null && !sender.equalsIgnoreCase(receiver)
                     && (shouldAccept(messageType) || isAuthorizedPublic(sender, messageType))) {
                 String wholeMessage = sender + " " + receiver + " " + message;
                 if (debug) {
@@ -225,6 +230,7 @@ public class Butler {
         String safe = truncateForChat(message, 240);
         synchronized (recentPublicMessages) {
             recentPublicMessages.addLast(safe);
+            recentPublicMessageTimes.put(safe, System.currentTimeMillis());
             while (recentPublicMessages.size() > 8) recentPublicMessages.removeFirst();
         }
         mod.getMessageSender().enqueueChat(safe, priority);
@@ -232,7 +238,10 @@ public class Butler {
 
     private boolean isRecentPublicMessage(String message) {
         synchronized (recentPublicMessages) {
-            return recentPublicMessages.removeFirstOccurrence(message);
+            long now = System.currentTimeMillis();
+            recentPublicMessageTimes.entrySet().removeIf(e -> now - e.getValue() > 15000L);
+            Long sentAt = recentPublicMessageTimes.get(message);
+            return sentAt != null && now - sentAt <= 15000L;
         }
     }
 

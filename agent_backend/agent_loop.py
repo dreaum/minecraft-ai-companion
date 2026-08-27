@@ -68,9 +68,12 @@ class AgentLoop:
         self.llm, self.send, self.tools = llm, send, tools
         self.messages = [{"role": "system", "content": SYSTEM}]
         self.pending = {}
+        self.max_followup_turns = 8
+        self.followup_turns = 0
         self.log = logging.getLogger("agent")
 
     async def request(self, user, text):
+        self.followup_turns = 0
         self.messages.append({"role":"user", "content": text})
         try:
             direct = direct_companion_call(text)
@@ -89,7 +92,10 @@ class AgentLoop:
             request_ids = [str(uuid.uuid4()) for _ in calls]
             self._append_assistant_tool_calls(response, calls, request_ids)
             for request_id, call in zip(request_ids, calls):
-                self.pending[request_id] = (user, direct is not None)
+                # Chat output is terminal: feeding a successful chat tool back
+                # to the model commonly creates a self-reinforcing reply loop.
+                terminal = call.get("tool") in {"chat_private", "chat_public", "chat"}
+                self.pending[request_id] = (user, direct is not None, terminal)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", request_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":request_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})
         except Exception as exc:
@@ -102,14 +108,19 @@ class AgentLoop:
         if pending is None:
             self.log.warning("ignored_tool_result id=%s", request_id)
             return
-        user, is_direct = pending
+        user, is_direct, terminal = pending
         self.log.info("tool_result_received id=%s status=%s", request_id, message.get("status"))
         self.messages.append({"role":"tool", "tool_call_id":request_id, "content":json.dumps(message, ensure_ascii=False)})
-        if is_direct:
+        if is_direct or terminal:
             # AltoClef now owns the queued companion task. Do not let a follow-up
             # model turn replace it with speculative raw-key movement.
             return
         if message.get("status") == "running": return
+        self.followup_turns += 1
+        if self.followup_turns > self.max_followup_turns:
+            await self.send({"type":"agent_error", "user": user, "error":"agent follow-up limit reached"})
+            self.pending.clear()
+            return
         try:
             response = self.llm.complete(self.messages, self.tools)
             self.log.info("llm_response=%s", json.dumps(response, ensure_ascii=False))
@@ -121,7 +132,8 @@ class AgentLoop:
             next_ids = [str(uuid.uuid4()) for _ in calls]
             self._append_assistant_tool_calls(response, calls, next_ids)
             for next_id, call in zip(next_ids, calls):
-                self.pending[next_id] = (user, False)
+                next_terminal = call.get("tool") in {"chat_private", "chat_public", "chat"}
+                self.pending[next_id] = (user, False, next_terminal)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", next_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":next_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})
 
