@@ -104,6 +104,9 @@ public final class AgentBridge implements WebSocket.Listener {
             String error = message.path("error").asText("unknown agent error");
             if (!user.isBlank()) mod.getButler().sendPublic("AI failed: " + error, MessagePriority.ASAP);
             mod.log("Agent error: " + error);
+        } else if ("agent_message".equals(message.path("type").asText())) {
+            String text = message.path("message").asText("").trim();
+            if (!text.isBlank()) mod.getButler().sendPublic(text, MessagePriority.TIMELY);
         }
     }
 

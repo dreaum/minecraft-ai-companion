@@ -82,7 +82,10 @@ class AgentLoop:
                 response = self.llm.complete(self.messages, self.tools)
                 self.log.info("llm_response=%s", json.dumps(response, ensure_ascii=False))
                 calls = [normalize_tool_call(call) for call in parse_calls(response)]
-            if not calls: await self.send({"type":"agent_error", "user":user, "error":"LLM returned no valid tool call", "raw":response}); return
+            if not calls:
+                text = self._response_text(response)
+                await self.send({"type":"agent_message", "user": user, "message": text}) if text else await self.send({"type":"agent_error", "user":user, "error":"LLM returned no valid tool call", "raw":response})
+                return
             request_ids = [str(uuid.uuid4()) for _ in calls]
             self._append_assistant_tool_calls(response, calls, request_ids)
             for request_id, call in zip(request_ids, calls):
@@ -111,15 +114,26 @@ class AgentLoop:
             response = self.llm.complete(self.messages, self.tools)
             self.log.info("llm_response=%s", json.dumps(response, ensure_ascii=False))
             calls = [normalize_tool_call(call) for call in parse_calls(response)]
+            if not calls:
+                text = self._response_text(response)
+                await self.send({"type":"agent_message", "user": user, "message": text}) if text else await self.send({"type":"agent_error", "user":user, "error":"LLM returned no valid tool call", "raw":response})
+                return
             next_ids = [str(uuid.uuid4()) for _ in calls]
             self._append_assistant_tool_calls(response, calls, next_ids)
             for next_id, call in zip(next_ids, calls):
                 self.pending[next_id] = (user, False)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", next_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":next_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})
+
         except Exception as exc:
             await self.send({"type":"agent_error", "user":user, "error":str(exc)})
 
+    @staticmethod
+    def _response_text(response):
+        try:
+            return str(((response.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+        except AttributeError:
+            return ""
     def _append_assistant_tool_calls(self, response, calls, request_ids):
         """Keep OpenAI-compatible assistant/tool message pairing valid."""
         message = ((response.get("choices") or [{}])[0].get("message") or {}) if isinstance(response, dict) else {}
