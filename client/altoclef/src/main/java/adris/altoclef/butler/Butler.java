@@ -236,6 +236,12 @@ public class Butler {
         mod.getMessageSender().enqueueChat(safe, priority);
     }
 
+    /** Sends a response only to the currently authorized owner. */
+    public void sendPrivate(String username, String message, MessagePriority priority) {
+        if (username == null || username.isBlank()) return;
+        sendTo(username, message, priority);
+    }
+
     private boolean isRecentPublicMessage(String message) {
         synchronized (recentPublicMessages) {
             long now = System.currentTimeMillis();

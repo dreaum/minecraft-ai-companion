@@ -30,10 +30,12 @@ public final class BuiltinAgentTools {
         registry.register(new ObserveWorldTool(mod));
         registry.register(new StopAllTool(mod));
         registry.register(new PressKeyTool(mod));
+        registry.register(new ReleaseKeyTool(mod));
         registry.register(new LookTool(mod));
         registry.register(new AltoClefTaskTool(mod));
         registry.register(new BaritoneGoalTool(mod));
         registry.register(new ChatPrivateTool(mod));
+        registry.register(new ChatPublicTool(mod));
         registry.register(new MoveTool(mod));
         registry.register(new InventoryTool());
         registry.register(new AttackEntityTool(mod));
@@ -41,6 +43,11 @@ public final class BuiltinAgentTools {
         registry.register(new BaritoneCancelTool(mod));
         registry.register(new TutorialSearchTool(mod));
         registry.register(new TutorialReadTool(mod));
+        registry.register(new UseItemTool(mod));
+        registry.register(new SelectHotbarTool());
+        registry.register(new DropItemTool());
+        registry.register(new PickupItemTool(mod));
+        registry.register(new WaitTicksTool());
     }
 
     private static ObjectNode schema(String properties, String required) {
@@ -165,6 +172,18 @@ public final class BuiltinAgentTools {
         public ToolResult execute(JsonNode args) {
             String owner = mod.getButler().getCurrentUser();
             if (owner == null) return ToolResult.failed("no authorized owner session");
+            mod.getButler().sendPrivate(owner, args.path("message").asText(""), MessagePriority.TIMELY);
+            return ToolResult.completed(JSON.createObjectNode().put("sent", true));
+        }
+    }
+
+    private static final class ChatPublicTool implements AgentTool {
+        private final AltoClef mod;
+        ChatPublicTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "chat_public"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"message\":{\"type\":\"string\"}}", "[\"message\"]"); }
+        public ToolResult execute(JsonNode args) {
+            if (mod.getPlayer() == null) return ToolResult.failed("not in a world");
             mod.getButler().sendPublic(args.path("message").asText(""), MessagePriority.TIMELY);
             return ToolResult.completed(JSON.createObjectNode().put("sent", true));
         }
@@ -188,6 +207,86 @@ public final class BuiltinAgentTools {
                 switch (action) { case "hold" -> mod.getInputControls().hold(key); case "release" -> mod.getInputControls().release(key); case "press" -> mod.getInputControls().tryPress(key); default -> { return ToolResult.failed("invalid action"); } }
                 return ToolResult.completed(JSON.createObjectNode().put("direction", key.name()).put("action", action));
             } catch (IllegalArgumentException e) { return ToolResult.failed("invalid direction"); }
+        }
+    }
+
+    private static final class ReleaseKeyTool implements AgentTool {
+        private final AltoClef mod;
+        ReleaseKeyTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "release_key"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"key\":{\"type\":\"string\"}}", "[\"key\"]"); }
+        public ToolResult execute(JsonNode args) {
+            try {
+                Input key = Input.valueOf(args.path("key").asText().toUpperCase(Locale.ROOT));
+                mod.getInputControls().release(key);
+                return ToolResult.completed(JSON.createObjectNode().put("key", key.name()).put("released", true));
+            } catch (IllegalArgumentException e) { return ToolResult.failed("invalid key"); }
+        }
+    }
+
+    private static final class UseItemTool implements AgentTool {
+        private final AltoClef mod;
+        UseItemTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "use_item"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"hand\":{\"type\":\"string\",\"enum\":[\"MAIN_HAND\",\"OFF_HAND\"]}}", "[]"); }
+        public ToolResult execute(JsonNode args) {
+            if (MinecraftClient.getInstance().player == null || MinecraftClient.getInstance().interactionManager == null) return ToolResult.failed("not in a world");
+            Hand hand; try { hand = Hand.valueOf(args.path("hand").asText("MAIN_HAND").toUpperCase(Locale.ROOT)); }
+            catch (IllegalArgumentException e) { return ToolResult.failed("invalid hand"); }
+            var result = MinecraftClient.getInstance().interactionManager.interactItem(MinecraftClient.getInstance().player, hand);
+            return ToolResult.completed(JSON.createObjectNode().put("result", result.name()).put("hand", hand.name()));
+        }
+    }
+
+    private static final class SelectHotbarTool implements AgentTool {
+        public String name() { return "select_hotbar"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"slot\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":8}}", "[\"slot\"]"); }
+        public ToolResult execute(JsonNode args) {
+            int slot = args.path("slot").asInt(-1); ClientPlayerEntity p = MinecraftClient.getInstance().player;
+            if (p == null) return ToolResult.failed("not in a world");
+            if (slot < 0 || slot > 8) return ToolResult.failed("slot must be between 0 and 8");
+            p.getInventory().selectedSlot = slot;
+            return ToolResult.completed(JSON.createObjectNode().put("slot", slot));
+        }
+    }
+
+    private static final class DropItemTool implements AgentTool {
+        public String name() { return "drop_item"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"slot\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":8},\"count\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":64}}", "[\"slot\",\"count\"]"); }
+        public ToolResult execute(JsonNode args) {
+            ClientPlayerEntity p = MinecraftClient.getInstance().player; int slot = args.path("slot").asInt(-1), count = args.path("count").asInt(0);
+            if (p == null) return ToolResult.failed("not in a world");
+            if (slot < 0 || slot > 8 || count < 1 || count > 64) return ToolResult.failed("invalid slot or count");
+            p.getInventory().selectedSlot = slot;
+            ItemStack stack = p.getInventory().getStack(slot); if (stack.isEmpty()) return ToolResult.failed("slot is empty");
+            int dropped = Math.min(count, stack.getCount());
+            for (int i = 0; i < dropped; i++) p.dropSelectedItem(false);
+            return ToolResult.completed(JSON.createObjectNode().put("dropped", dropped));
+        }
+    }
+
+    private static final class PickupItemTool implements AgentTool {
+        private final AltoClef mod;
+        PickupItemTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "pickup_item"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"entity_id\":{\"type\":\"integer\"}}", "[\"entity_id\"]"); }
+        public ToolResult execute(JsonNode args) {
+            if (MinecraftClient.getInstance().world == null || mod.getPlayer() == null) return ToolResult.failed("not in a world");
+            Entity entity = MinecraftClient.getInstance().world.getEntityById(args.path("entity_id").asInt());
+            if (!(entity instanceof ItemEntity item) || !item.isAlive()) return ToolResult.failed("item entity not found");
+            if (item.distanceTo(mod.getPlayer()) <= 3.0) return ToolResult.completed(JSON.createObjectNode().put("in_range", true));
+            mod.getClientBaritone().getCustomGoalProcess().setGoalAndPath(new GoalBlock(item.getBlockPos()));
+            return ToolResult.running(JSON.createObjectNode().put("entity_id", item.getId()));
+        }
+    }
+
+    private static final class WaitTicksTool implements AgentTool {
+        public String name() { return "wait_ticks"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"ticks\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}", "[\"ticks\"]"); }
+        public ToolResult execute(JsonNode args) {
+            int ticks = args.path("ticks").asInt(0);
+            if (ticks < 1 || ticks > 200) return ToolResult.failed("ticks must be between 1 and 200");
+            return ToolResult.running(JSON.createObjectNode().put("wait_ticks", ticks));
         }
     }
 
