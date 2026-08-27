@@ -126,11 +126,12 @@ public class Butler {
         // so altoclef_task and chat_private can authorize this LLM turn.
         currentUser = username;
         ObjectNode system = AGENT_JSON.createObjectNode(); system.put("role", "system");
-        system.put("content", "You control Minecraft through registered tools. Return only structured tool calls. Observe before acting. For search_tutorial, always query using canonical English Minecraft IDs and action keywords (for example oak_log, crafting_table, furnace, smelting, mining, water, lava, combat), not a Chinese sentence. Read the matching tutorial before executing the task, then verify the result with observe_world or inventory.");
+        system.put("content", "You control Minecraft through registered tools. This is a strict JSON protocol. Return exactly one JSON object and nothing else, with no Markdown fences: {\"tool\":\"observe_world\",\"arguments\":{}}. Few-shot examples: user asks what you see -> {\"tool\":\"observe_world\",\"arguments\":{}}; user asks to get one oak log -> {\"tool\":\"search_tutorial\",\"arguments\":{\"query\":\"oak_log\",\"limit\":3}}; after reading the tutorial -> {\"tool\":\"altoclef_task\",\"arguments\":{\"command\":\"collect oak_log 1\"}}. Never return a sentence, XML, JavaScript, or a different JSON shape. Use only a registered tool name and valid arguments. Observe before acting. For search_tutorial, always query using canonical English Minecraft IDs and action keywords (for example oak_log, crafting_table, furnace, smelting, mining, water, lava, combat), not a Chinese sentence. Read the matching tutorial before executing the task, then verify the result with observe_world or inventory.");
         ObjectNode user = AGENT_JSON.createObjectNode(); user.put("role", "user"); user.put("content", request);
         sendWhisper(username, "AI request accepted.", MessagePriority.TIMELY);
         mod.getAgentLoop().submit(List.of(system, user), result -> {
             String text = result.ok() ? "AI tool " + result.status() + "." : "AI failed: " + result.error();
+            if (!result.ok()) Debug.logError("Agent request failed: " + result.error());
             sendWhisper(username, text, result.ok() ? MessagePriority.TIMELY : MessagePriority.ASAP);
         });
     }

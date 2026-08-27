@@ -26,6 +26,14 @@ class AgentProtocolTest {
     }
 
     @Test
+    void parsesJsonToolCallFromNormalMessageContent() throws Exception {
+        var response = json.readTree("{\"choices\":[{\"message\":{\"content\":\"{\\\"tool\\\":\\\"observe_world\\\",\\\"arguments\\\":{}}\"}}]}");
+        var calls = AgentResponseParser.toolCalls(response);
+        assertEquals(1, calls.size());
+        assertEquals("observe_world", calls.get(0).tool());
+    }
+
+    @Test
     void resultHasStableWireShape() {
         var result = ToolResult.failed("bad target").toJson();
         assertFalse(result.path("ok").asBoolean());
