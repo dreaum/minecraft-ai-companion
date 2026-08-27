@@ -33,6 +33,7 @@ class CompanionIntentQueueTest {
         CompanionIntentQueue queue = new CompanionIntentQueue();
         CompanionIntentQueue.Entry collect = queue.enqueue(
                 CompanionIntent.target(CompanionIntent.Type.COLLECT, "iron_ingot", 1), "owner", NO_REPLY);
+        assertEquals(CompanionIntent.Type.COLLECT, queue.poll().intent().type());
         queue.enqueue(CompanionIntent.target(CompanionIntent.Type.CRAFT, "torch", 4), "owner", NO_REPLY);
         queue.requeue(collect);
 
