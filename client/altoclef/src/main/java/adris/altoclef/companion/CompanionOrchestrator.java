@@ -3,9 +3,6 @@ package adris.altoclef.companion;
 import adris.altoclef.AltoClef;
 import adris.altoclef.tasksystem.Task;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.function.Consumer;
 
 /** Serializes approved companion intents and is the only private-message path to user tasks. */
@@ -13,9 +10,8 @@ public final class CompanionOrchestrator {
 
     private final AltoClef mod;
     private final CompanionSession session;
-    private final List<QueuedIntent> queue = new ArrayList<>();
-    private long nextSequence;
-    private QueuedIntent active;
+    private final CompanionIntentQueue queue = new CompanionIntentQueue();
+    private CompanionIntentQueue.Entry active;
     private long ignoredCompletion = -1;
 
     public CompanionOrchestrator(AltoClef mod, CompanionSession session) {
@@ -58,9 +54,7 @@ public final class CompanionOrchestrator {
             return;
         }
 
-        QueuedIntent queued = new QueuedIntent(intent, sender, reply, nextSequence++);
-        queue.add(queued);
-        queue.sort(QueuedIntent.ORDER);
+        CompanionIntentQueue.Entry queued = queue.enqueue(intent, sender, reply);
         reply.accept("Queued: " + intent.describe() + ". " + queueDescription());
         preemptIfNeeded();
         startNext();
@@ -76,13 +70,12 @@ public final class CompanionOrchestrator {
             session.safetyPause(reason);
             return;
         }
-        QueuedIntent interrupted = active;
+        CompanionIntentQueue.Entry interrupted = active;
         active = null;
-        ignoredCompletion = interrupted.sequence;
-        queue.add(interrupted);
-        queue.sort(QueuedIntent.ORDER);
+        ignoredCompletion = interrupted.sequence();
+        queue.requeue(interrupted);
         session.safetyPause(reason);
-        interrupted.reply.accept("Paused for safety: " + reason + ". " + queueDescription());
+        interrupted.reply().accept("Paused for safety: " + reason + ". " + queueDescription());
         mod.cancelUserTask();
     }
 
@@ -97,7 +90,7 @@ public final class CompanionOrchestrator {
     private void stop(Consumer<String> reply) {
         queue.clear();
         if (active != null) {
-            ignoredCompletion = active.sequence;
+            ignoredCompletion = active.sequence();
             active = null;
             mod.cancelUserTask();
         }
@@ -106,9 +99,9 @@ public final class CompanionOrchestrator {
     }
 
     private void unprotect(Consumer<String> reply) {
-        boolean removed = queue.removeIf(queued -> queued.intent.type() == CompanionIntent.Type.PROTECT);
-        if (active != null && active.intent.type() == CompanionIntent.Type.PROTECT) {
-            ignoredCompletion = active.sequence;
+        boolean removed = queue.removeType(CompanionIntent.Type.PROTECT);
+        if (active != null && active.intent().type() == CompanionIntent.Type.PROTECT) {
+            ignoredCompletion = active.sequence();
             active = null;
             mod.cancelUserTask();
             removed = true;
@@ -126,15 +119,14 @@ public final class CompanionOrchestrator {
         if (active == null || queue.isEmpty()) {
             return;
         }
-        QueuedIntent next = queue.get(0);
-        if (next.intent.priority() <= active.intent.priority()) {
+        CompanionIntentQueue.Entry next = queue.peek();
+        if (next.intent().priority() <= active.intent().priority()) {
             return;
         }
-        QueuedIntent interrupted = active;
+        CompanionIntentQueue.Entry interrupted = active;
         active = null;
-        ignoredCompletion = interrupted.sequence;
-        queue.add(interrupted);
-        queue.sort(QueuedIntent.ORDER);
+        ignoredCompletion = interrupted.sequence();
+        queue.requeue(interrupted);
         mod.cancelUserTask();
     }
 
@@ -142,16 +134,16 @@ public final class CompanionOrchestrator {
         if (active != null || queue.isEmpty()) {
             return;
         }
-        active = queue.remove(0);
-        QueuedIntent running = active;
+        active = queue.poll();
+        CompanionIntentQueue.Entry running = active;
         try {
-            Task task = CompanionTaskFactory.create(mod, running.intent, running.owner);
-            updateSessionFor(running.intent, running.owner);
-            running.reply.accept("Executing: " + running.intent.describe() + ".");
-            mod.runUserTask(task, () -> finished(running.sequence));
+            Task task = CompanionTaskFactory.create(mod, running.intent(), running.owner());
+            updateSessionFor(running.intent(), running.owner());
+            running.reply().accept("Executing: " + running.intent().describe() + ".");
+            mod.runUserTask(task, () -> finished(running.sequence()));
         } catch (RuntimeException exception) {
             active = null;
-            running.reply.accept("TASK FAILED: " + exception.getMessage());
+            running.reply().accept("TASK FAILED: " + exception.getMessage());
             startNext();
         }
     }
@@ -161,16 +153,16 @@ public final class CompanionOrchestrator {
             ignoredCompletion = -1;
             return;
         }
-        if (active == null || active.sequence != sequence) {
+        if (active == null || active.sequence() != sequence) {
             return;
         }
-        QueuedIntent completed = active;
+        CompanionIntentQueue.Entry completed = active;
         active = null;
-        if (completed.intent.type() != CompanionIntent.Type.PROTECT) {
-            completed.reply.accept("Finished: " + completed.intent.describe() + ".");
+        if (completed.intent().type() != CompanionIntent.Type.PROTECT) {
+            completed.reply().accept("Finished: " + completed.intent().describe() + ".");
         }
         if (session.getState() == CompanionState.SAFETY_PAUSE) {
-            completed.reply.accept("Paused: " + session.describe());
+            completed.reply().accept("Paused: " + session.describe());
             return;
         }
         session.setIdle();
@@ -196,17 +188,12 @@ public final class CompanionOrchestrator {
         }
         StringBuilder result = new StringBuilder("Queue:");
         if (active != null) {
-            result.append(" running ").append(active.intent.describe()).append(';');
+            result.append(" running ").append(active.intent().describe()).append(';');
         }
-        for (QueuedIntent intent : queue) {
-            result.append(' ').append(intent.intent.describe()).append(';');
+        for (CompanionIntentQueue.Entry intent : queue.snapshot()) {
+            result.append(' ').append(intent.intent().describe()).append(';');
         }
         return result.toString();
     }
 
-    private record QueuedIntent(CompanionIntent intent, String owner, Consumer<String> reply, long sequence) {
-        private static final Comparator<QueuedIntent> ORDER = Comparator
-                .comparingInt((QueuedIntent queued) -> queued.intent.priority()).reversed()
-                .thenComparingLong(QueuedIntent::sequence);
-    }
 }
