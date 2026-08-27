@@ -11,8 +11,7 @@ import adris.altoclef.agent.AgentStore;
 import adris.altoclef.agent.AgentToolRegistry;
 import adris.altoclef.agent.TaskExperienceStore;
 import adris.altoclef.agent.TutorialIndex;
-import adris.altoclef.agent.AgentLoop;
-import adris.altoclef.agent.OpenAiCompatibleClient;
+import adris.altoclef.agent.AgentBridge;
 import adris.altoclef.trackers.BlockScanner;
 import adris.altoclef.commandsystem.CommandExecutor;
 import adris.altoclef.commandsystem.TabCompleter;
@@ -101,7 +100,7 @@ public class AltoClef implements ModInitializer {
     private AgentToolRegistry agentTools;
     private TaskExperienceStore taskExperienceStore;
     private TutorialIndex tutorialIndex;
-    private AgentLoop agentLoop;
+    private AgentBridge agentBridge;
     // Pausing
     private boolean paused = false;
     private Task storedTask;
@@ -184,19 +183,8 @@ public class AltoClef implements ModInitializer {
         taskExperienceStore = new TaskExperienceStore(agentStore);
         agentTools = new AgentToolRegistry();
         adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
-        java.util.Properties llmConfig = new java.util.Properties();
-        java.nio.file.Path llmConfigPath = agentRoot.resolve("llm.properties");
-        if (java.nio.file.Files.exists(llmConfigPath)) {
-            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(llmConfigPath, java.nio.charset.StandardCharsets.UTF_8)) {
-                llmConfig.load(reader);
-            } catch (java.io.IOException exception) {
-                log("Agent LLM config unavailable: " + exception.getMessage());
-            }
-        }
-        String llmUrl = llmConfig.getProperty("url", System.getProperty("minecraft.agent.llm.url", "http://127.0.0.1:11434"));
-        String llmModel = llmConfig.getProperty("model", System.getProperty("minecraft.agent.llm.model", "llama3.1"));
-        String llmKey = llmConfig.getProperty("key", System.getProperty("minecraft.agent.llm.key", ""));
-        agentLoop = new AgentLoop(new OpenAiCompatibleClient(llmUrl, llmModel, llmKey, java.time.Duration.ofSeconds(60)), agentTools, agentAuditLog);
+        // The LLM and orchestration run out-of-process. Java remains the Minecraft execution bridge.
+        agentBridge = new AgentBridge(this, agentTools, agentAuditLog);
         try {
             tutorialIndex = new TutorialIndex(agentStore);
             tutorialIndex.rebuild();
@@ -259,7 +247,7 @@ public class AltoClef implements ModInitializer {
     private void onClientTick() {
         runEnqueuedPostInits();
 
-        if (agentLoop != null) agentLoop.tick();
+        if (agentBridge != null) agentBridge.tick();
 
         inputControls.onTickPre();
 
@@ -504,7 +492,7 @@ public class AltoClef implements ModInitializer {
     public AgentToolRegistry getAgentTools() { return agentTools; }
     public TaskExperienceStore getTaskExperienceStore() { return taskExperienceStore; }
     public TutorialIndex getTutorialIndex() { return tutorialIndex; }
-    public AgentLoop getAgentLoop() { return agentLoop; }
+    public AgentBridge getAgentBridge() { return agentBridge; }
 
     public CompanionSession getCompanionSession() {
         return companionSession;

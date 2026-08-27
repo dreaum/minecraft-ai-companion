@@ -140,7 +140,7 @@ public final class BuiltinAgentTools {
         public ToolResult execute(JsonNode args) {
             String owner = mod.getButler().getCurrentUser();
             if (owner == null) return ToolResult.failed("no authorized owner session");
-            mod.getButler().sendTo(owner, args.path("message").asText(""), MessagePriority.TIMELY);
+            mod.getButler().sendPublic(args.path("message").asText(""), MessagePriority.TIMELY);
             return ToolResult.completed(JSON.createObjectNode().put("sent", true));
         }
     }

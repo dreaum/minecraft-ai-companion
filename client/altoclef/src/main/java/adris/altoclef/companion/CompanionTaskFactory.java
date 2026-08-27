@@ -17,12 +17,27 @@ import net.minecraft.util.math.BlockPos;
 /** Adapts approved companion intents to AltoClef tasks. */
 final class CompanionTaskFactory {
 
+    private static String canonicalTarget(String target) {
+        return switch (target) {
+            case "oak_log" -> "oak";
+            case "birch_log" -> "birch";
+            case "spruce_log" -> "spruce";
+            case "jungle_log" -> "jungle";
+            case "acacia_log" -> "acacia";
+            case "dark_oak_log" -> "dark_oak";
+            case "mangrove_log" -> "mangrove";
+            case "crimson_stem" -> "crimson";
+            case "warped_stem" -> "warped";
+            default -> target;
+        };
+    }
+
     private CompanionTaskFactory() {
     }
 
     static String validate(CompanionIntent intent) {
         return switch (intent.type()) {
-            case COLLECT, CRAFT, SMELT, GIVE -> TaskCatalogue.taskExists(intent.target())
+            case COLLECT, CRAFT, SMELT, GIVE -> TaskCatalogue.taskExists(canonicalTarget(intent.target()))
                     ? null : "I cannot obtain the item '" + intent.target() + "'.";
             case ATTACK -> validateAttackTarget(intent.target());
             default -> null;
@@ -32,7 +47,7 @@ final class CompanionTaskFactory {
     static Task create(AltoClef mod, CompanionIntent intent, String owner) {
         return switch (intent.type()) {
             // The catalogue owns the complete resource chain: tools, mining, crafting, fuel and smelting.
-            case COLLECT, CRAFT, SMELT -> TaskCatalogue.getItemTask(intent.target(), intent.count());
+            case COLLECT, CRAFT, SMELT -> TaskCatalogue.getItemTask(canonicalTarget(intent.target()), intent.count());
             case GOTO -> new GetToBlockTask(new BlockPos(intent.x(), intent.y(), intent.z()));
             case FOLLOW -> new FollowPlayerTask(owner);
             case COME -> new ComeToPlayerTask(mod.getEntityTracker().getPlayerEntity(owner)
@@ -46,7 +61,7 @@ final class CompanionTaskFactory {
     }
 
     private static Task existingItemDelivery(AltoClef mod, String owner, CompanionIntent intent) {
-        ItemTarget target = TaskCatalogue.getItemTarget(intent.target(), intent.count());
+        ItemTarget target = TaskCatalogue.getItemTarget(canonicalTarget(intent.target()), intent.count());
         if (!StorageHelper.itemTargetsMet(mod, target)) {
             throw new IllegalStateException("I do not currently have " + intent.count() + " " + intent.target() + " to give.");
         }

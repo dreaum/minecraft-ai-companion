@@ -9,10 +9,6 @@ import adris.altoclef.ui.MessagePriority;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.world.World;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.util.List;
-import adris.altoclef.agent.ToolResult;
 
 import java.util.Objects;
 
@@ -25,8 +21,6 @@ import java.util.Objects;
  * and depends on the "useButlerWhitelist" and "useButlerBlacklist" settings in "altoclef_settings.json"
  */
 public class Butler {
-
-    private static final ObjectMapper AGENT_JSON = new ObjectMapper();
 
     private static final String BUTLER_MESSAGE_START = "` ";
 
@@ -60,12 +54,14 @@ public class Butler {
             String sender = evt.senderName();
             MessageType messageType = evt.messageType();
             String receiver = mod.getPlayer().getName().getString();
-            if (sender != null && !Objects.equals(sender, receiver) && shouldAccept(messageType)) {
+            if (sender != null && !Objects.equals(sender, receiver)
+                    && (shouldAccept(messageType) || isAuthorizedPublic(sender, messageType))) {
                 String wholeMessage = sender + " " + receiver + " " + message;
                 if (debug) {
                     Debug.logMessage("RECEIVED WHISPER: \"" + wholeMessage + "\".");
                 }
-                this.mod.getButler().receiveMessage(wholeMessage, receiver);
+                if (isAuthorizedPublic(sender, messageType)) receiveAgentRequest(sender, message.trim());
+                else this.mod.getButler().receiveMessage(wholeMessage, receiver);
             }
         });
     }
@@ -125,15 +121,14 @@ public class Butler {
         // Establish the same owner context used by legacy companion commands
         // so altoclef_task and chat_private can authorize this LLM turn.
         currentUser = username;
-        ObjectNode system = AGENT_JSON.createObjectNode(); system.put("role", "system");
-        system.put("content", "You control Minecraft through registered tools. This is a strict JSON protocol. Return exactly one JSON object and nothing else, with no Markdown fences: {\"tool\":\"observe_world\",\"arguments\":{}}. Few-shot examples: user asks what you see -> {\"tool\":\"observe_world\",\"arguments\":{}}; user asks to get one oak log -> {\"tool\":\"search_tutorial\",\"arguments\":{\"query\":\"oak_log\",\"limit\":3}}; after reading the tutorial -> {\"tool\":\"altoclef_task\",\"arguments\":{\"command\":\"collect oak_log 1\"}}. Tool argument contract: move requires direction exactly MOVE_FORWARD|MOVE_BACK|MOVE_LEFT|MOVE_RIGHT|JUMP|SNEAK|SPRINT and action exactly hold|release|press; look requires numeric yaw and pitch; baritone_goal requires integer x,y,z; attack_entity requires integer entity_id; interact_block requires integer x,y,z and optional face; search_tutorial requires query and optional integer limit; read_tutorial requires id; altoclef_task requires command. Never invent distance, target, or other fields. Never use direction values such as forward or back; use MOVE_FORWARD or MOVE_BACK. Never return a sentence, XML, JavaScript, </tool_call>, or a different JSON shape. Use only a registered tool name and valid arguments. Observe before acting. For search_tutorial, always query using canonical English Minecraft IDs and action keywords (for example oak_log, crafting_table, furnace, smelting, mining, water, lava, combat), not a Chinese sentence. Read the matching tutorial before executing the task, then verify the result with observe_world or inventory.");
-        ObjectNode user = AGENT_JSON.createObjectNode(); user.put("role", "user"); user.put("content", request);
+        if (mod.getAgentBridge() == null || !mod.getAgentBridge().isConnected()) {
+            sendWhisper(username, "AI backend is not connected.", MessagePriority.ASAP);
+            return;
+        }
+        /* The Python backend owns prompts and model calls. */
+        mod.getAgentBridge().submitUserRequest(username, request);
         sendWhisper(username, "AI request accepted.", MessagePriority.TIMELY);
-        mod.getAgentLoop().submit(List.of(system, user), result -> {
-            String text = result.ok() ? "AI tool " + result.status() + "." : "AI failed: " + result.error();
-            if (!result.ok()) Debug.logError("Agent request failed: " + result.error());
-            sendWhisper(username, text, result.ok() ? MessagePriority.TIMELY : MessagePriority.ASAP);
-        });
+        return;
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
@@ -208,10 +203,24 @@ public class Butler {
     }
 
     public void sendTo(String username, String message, MessagePriority priority) {
-      mod.getMessageSender().enqueueWhisper(username, BUTLER_MESSAGE_START + message, priority);
+      // Minecraft's serverbound chat/whisper payload is limited to 256 chars.
+      String safe = message == null ? "" : message;
+      int max = 256 - BUTLER_MESSAGE_START.length();
+      if (safe.length() > max) safe = safe.substring(0, Math.max(0, max - 3)) + "...";
+      mod.getMessageSender().enqueueWhisper(username, BUTLER_MESSAGE_START + safe, priority);
+    }
+
+    private boolean isAuthorizedPublic(String sender, MessageType messageType) {
+        return userAuth.isUserAuthorized(sender) && !shouldAccept(messageType);
     }
 
     private void sendWhisper(String username, String message, MessagePriority priority) {
         sendTo(username, message, priority);
+    }
+
+    public void sendPublic(String message, MessagePriority priority) {
+        String safe = message == null ? "" : message;
+        if (safe.length() > 256) safe = safe.substring(0, 253) + "...";
+        mod.getMessageSender().enqueueChat(safe, priority);
     }
 }
