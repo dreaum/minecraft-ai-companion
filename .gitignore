@@ -1,0 +1,6 @@
+agent_backend/__pycache__/
+agent_backend/tests/__pycache__/
+agent/*.log
+agent/audit.jsonl
+build-artifacts/
+local-gradle-build.log
