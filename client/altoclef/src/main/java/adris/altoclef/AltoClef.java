@@ -181,8 +181,6 @@ public class AltoClef implements ModInitializer {
         java.nio.file.Path agentRoot = MinecraftClient.getInstance().runDirectory.toPath().resolve("agent");
         agentStore = new AgentStore(agentRoot);
         agentAuditLog = new AgentAuditLog(agentRoot);
-        agentTools = new AgentToolRegistry();
-        adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
         taskExperienceStore = new TaskExperienceStore(agentStore);
         String llmUrl = System.getProperty("minecraft.agent.llm.url", "http://127.0.0.1:11434");
         String llmModel = System.getProperty("minecraft.agent.llm.model", "llama3.1");
@@ -193,6 +191,8 @@ public class AltoClef implements ModInitializer {
         } catch (java.sql.SQLException | java.io.IOException exception) {
             log("Agent tutorial index unavailable: " + exception.getMessage());
         }
+        agentTools = new AgentToolRegistry();
+        adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
         initializeCommands();
 
         // Load settings

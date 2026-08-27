@@ -31,7 +31,18 @@ jobs:
           chmod +x gradlew
           mkdir -p versions
           echo 1.21.1 > versions/mainProject
-          ./gradlew :1.20.1:test :1.20.1:build --no-daemon
+          set +e
+          ./gradlew :1.20.1:test :1.20.1:build --no-daemon --stacktrace 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          exit $status
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-ai-companion-1.20.1-build-log
+          path: client/altoclef/build.log
+          if-no-files-found: warn
 
       - name: Upload the remapped mod jar
         uses: actions/upload-artifact@v4

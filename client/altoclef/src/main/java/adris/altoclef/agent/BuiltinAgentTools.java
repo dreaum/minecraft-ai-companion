@@ -37,6 +37,8 @@ public final class BuiltinAgentTools {
         registry.register(new AttackEntityTool(mod));
         registry.register(new InteractBlockTool(mod));
         registry.register(new BaritoneCancelTool(mod));
+        registry.register(new TutorialSearchTool(mod));
+        registry.register(new TutorialReadTool(mod));
     }
 
     private static ObjectNode schema(String properties, String required) {
@@ -205,5 +207,29 @@ public final class BuiltinAgentTools {
         public String name() { return "baritone_cancel"; }
         public JsonNode schema() { return schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) { mod.getClientBaritone().getPathingBehavior().forceCancel(); mod.getClientBaritone().getCustomGoalProcess().setGoal(null); return ToolResult.completed(JSON.createObjectNode().put("cancelled", true)); }
+    }
+
+    private static final class TutorialSearchTool implements AgentTool {
+        private final AltoClef mod;
+        TutorialSearchTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "search_tutorial"; }
+        public JsonNode schema() { return schema("{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"}}", "[\"query\"]"); }
+        public ToolResult execute(JsonNode args) {
+            if (mod.getTutorialIndex() == null) return ToolResult.failed("tutorial index unavailable");
+            try { var hits = mod.getTutorialIndex().search(args.path("query").asText(), args.path("limit").asInt(5)); var out = JSON.createArrayNode(); for (var hit : hits) out.add(JSON.createObjectNode().put("id", hit.id()).put("title", hit.title()).put("path", hit.path()).put("snippet", hit.snippet())); return ToolResult.completed(out); }
+            catch (java.sql.SQLException e) { return ToolResult.failed("tutorial search failed: " + e.getMessage()); }
+        }
+    }
+
+    private static final class TutorialReadTool implements AgentTool {
+        private final AltoClef mod;
+        TutorialReadTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "read_tutorial"; }
+        public JsonNode schema() { return schema("{\"id\":{\"type\":\"string\"}}", "[\"id\"]"); }
+        public ToolResult execute(JsonNode args) {
+            if (mod.getTutorialIndex() == null) return ToolResult.failed("tutorial index unavailable");
+            try { return ToolResult.completed(JSON.createObjectNode().put("id", args.path("id").asText()).put("content", mod.getTutorialIndex().read(args.path("id").asText()))); }
+            catch (java.io.IOException e) { return ToolResult.failed(e.getMessage()); }
+        }
     }
 }
