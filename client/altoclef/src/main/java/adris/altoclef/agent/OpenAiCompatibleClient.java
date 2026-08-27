@@ -56,9 +56,26 @@ public final class OpenAiCompatibleClient {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(request)));
         if (!apiKey.isBlank()) builder.header("Authorization", "Bearer " + apiKey);
-        HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300)
-            throw new IOException("LLM HTTP " + response.statusCode() + ": " + response.body());
-        return json.readTree(response.body());
+        HttpRequest request = builder.build();
+        IOException lastFailure = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() >= 200 && response.statusCode() < 300) return json.readTree(response.body());
+                String body = response.body() == null ? "" : response.body();
+                if (response.statusCode() != 429 && response.statusCode() < 500)
+                    throw new IOException("LLM HTTP " + response.statusCode() + ": " + body);
+                lastFailure = new IOException("LLM HTTP " + response.statusCode() + ": " + body);
+            } catch (IOException exception) {
+                lastFailure = exception;
+                if (exception.getMessage() != null && exception.getMessage().startsWith("LLM HTTP ")
+                        && !exception.getMessage().matches("LLM HTTP (429|5\\d\\d):.*")) throw exception;
+            }
+            if (attempt < 2) {
+                try { Thread.sleep(500L * (attempt + 1)); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IOException("LLM request interrupted", interrupted); }
+            }
+        }
+        throw lastFailure == null ? new IOException("LLM request failed") : lastFailure;
     }
 }
