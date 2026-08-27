@@ -38,9 +38,9 @@ public final class CompanionSafetyRules {
         if (suffocating) {
             return Optional.of("suffocation detected");
         }
-        // A companion is never asked to remain underwater. Yield as soon as the client
-        // observes submersion or any loss of air, so the survival chain can leave water.
-        if (submergedInWater || air < maxAir) {
+        // Yield immediately while submerged. The survival chain additionally handles an
+        // observed loss of air as a fallback when the client has not flagged submersion.
+        if (submergedInWater || air < Math.min(40, maxAir / 4)) {
             return Optional.of("drowning risk detected");
         }
         if (health <= MINIMUM_MOVEMENT_HEALTH) {

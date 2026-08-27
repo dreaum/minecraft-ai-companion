@@ -6,9 +6,9 @@ import adris.altoclef.tasks.InteractWithBlockTask;
 import adris.altoclef.tasks.construction.PutOutFireTask;
 import adris.altoclef.tasks.movement.EnterNetherPortalTask;
 import adris.altoclef.tasks.movement.EscapeFromLavaTask;
-import adris.altoclef.tasks.movement.GetOutOfWaterTask;
 import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasks.movement.SafeRandomShimmyTask;
+import adris.altoclef.tasks.movement.SurfaceFromWaterTask;
 import adris.altoclef.tasksystem.TaskRunner;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.LookHelper;
@@ -47,10 +47,9 @@ public class WorldSurvivalChain extends SingleTaskChain {
 
         AltoClef mod = AltoClef.getInstance();
 
-        // Water escape must be a real survival task, not just a jump input. In particular,
-        // Baritone pathing owns movement inputs while a companion intent is active.
+        // Reaching air is a real survival task, not a jump input that active pathing can ignore.
         if (isDrowningOrSubmerged(mod)) {
-            setTask(new GetOutOfWaterTask());
+            setTask(new SurfaceFromWaterTask());
             return 110;
         }
 
