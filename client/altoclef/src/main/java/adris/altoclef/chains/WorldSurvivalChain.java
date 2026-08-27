@@ -6,6 +6,7 @@ import adris.altoclef.tasks.InteractWithBlockTask;
 import adris.altoclef.tasks.construction.PutOutFireTask;
 import adris.altoclef.tasks.movement.EnterNetherPortalTask;
 import adris.altoclef.tasks.movement.EscapeFromLavaTask;
+import adris.altoclef.tasks.movement.GetOutOfWaterTask;
 import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasks.movement.SafeRandomShimmyTask;
 import adris.altoclef.tasksystem.TaskRunner;
@@ -29,8 +30,6 @@ public class WorldSurvivalChain extends SingleTaskChain {
 
     private final TimerGame wasInLavaTimer = new TimerGame(1);
     private final TimerGame portalStuckTimer = new TimerGame(5);
-    private boolean wasAvoidingDrowning;
-
     private BlockPos _extinguishWaterPosition;
 
     public WorldSurvivalChain(TaskRunner runner) {
@@ -48,8 +47,12 @@ public class WorldSurvivalChain extends SingleTaskChain {
 
         AltoClef mod = AltoClef.getInstance();
 
-        // Drowning
-        handleDrowning(mod);
+        // Water escape must be a real survival task, not just a jump input. In particular,
+        // Baritone pathing owns movement inputs while a companion intent is active.
+        if (isDrowningOrSubmerged(mod)) {
+            setTask(new GetOutOfWaterTask());
+            return 110;
+        }
 
         // Lava Escape
         if (isInLavaOhShit(mod) && mod.getBehaviour().shouldEscapeLava()) {
@@ -114,26 +117,13 @@ public class WorldSurvivalChain extends SingleTaskChain {
         return Float.NEGATIVE_INFINITY;
     }
 
-    private void handleDrowning(AltoClef mod) {
-        // Swim
-        boolean avoidedDrowning = false;
-        if (mod.getModSettings().shouldAvoidDrowning()) {
-            if (!mod.getClientBaritone().getPathingBehavior().isPathing()) {
-                if (mod.getPlayer().isTouchingWater() && mod.getPlayer().getAir() < mod.getPlayer().getMaxAir()) {
-                    // Swim up!
-                    mod.getInputControls().hold(Input.JUMP);
-                    //mod.getClientBaritone().getInputOverrideHandler().setInputForceState(Input.JUMP, true);
-                    avoidedDrowning = true;
-                    wasAvoidingDrowning = true;
-                }
-            }
+    private boolean isDrowningOrSubmerged(AltoClef mod) {
+        if (!mod.getModSettings().shouldAvoidDrowning()) {
+            return false;
         }
-        // Stop swimming up if we just swam.
-        if (wasAvoidingDrowning && !avoidedDrowning) {
-            wasAvoidingDrowning = false;
-            mod.getInputControls().release(Input.JUMP);
-            //mod.getClientBaritone().getInputOverrideHandler().setInputForceState(Input.JUMP, false);
-        }
+        return mod.getPlayer().isSubmergedInWater()
+                || (mod.getPlayer().isTouchingWater()
+                && mod.getPlayer().getAir() < mod.getPlayer().getMaxAir());
     }
 
     private boolean isInLavaOhShit(AltoClef mod) {

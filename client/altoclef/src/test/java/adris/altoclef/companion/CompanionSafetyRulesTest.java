@@ -29,6 +29,8 @@ class CompanionSafetyRulesTest {
                 20, 20, false, 300, 300, false, true, 0).orElseThrow());
         assertEquals("drowning risk detected", CompanionSafetyRules.evaluate(true, false, false,
                 20, 20, true, 20, 300, false, true, 0).orElseThrow());
+        assertEquals("drowning risk detected", CompanionSafetyRules.evaluate(true, false, false,
+                20, 20, false, 299, 300, false, true, 0).orElseThrow());
         assertEquals("suffocation detected", CompanionSafetyRules.evaluate(true, false, false,
                 20, 20, false, 300, 300, true, true, 0).orElseThrow());
         assertEquals("hunger is critically low", CompanionSafetyRules.evaluate(true, false, false,

@@ -7,7 +7,6 @@ public final class CompanionSafetyRules {
 
     private static final float MINIMUM_MOVEMENT_HEALTH = 6.0F;
     private static final int MINIMUM_MOVEMENT_FOOD = 3;
-    private static final int DANGEROUS_AIR = 40;
     private static final double DANGEROUS_FALL_SPEED = -0.7D;
 
     private CompanionSafetyRules() {
@@ -39,7 +38,9 @@ public final class CompanionSafetyRules {
         if (suffocating) {
             return Optional.of("suffocation detected");
         }
-        if (submergedInWater && air < Math.min(DANGEROUS_AIR, maxAir / 4)) {
+        // A companion is never asked to remain underwater. Yield as soon as the client
+        // observes submersion or any loss of air, so the survival chain can leave water.
+        if (submergedInWater || air < maxAir) {
             return Optional.of("drowning risk detected");
         }
         if (health <= MINIMUM_MOVEMENT_HEALTH) {
