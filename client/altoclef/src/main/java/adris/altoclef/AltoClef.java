@@ -10,8 +10,6 @@ import adris.altoclef.companion.EasyAISafetyController;
 import adris.altoclef.agent.AgentAuditLog;
 import adris.altoclef.agent.AgentStore;
 import adris.altoclef.agent.AgentToolRegistry;
-import adris.altoclef.agent.TaskExperienceStore;
-import adris.altoclef.agent.TutorialIndex;
 import adris.altoclef.agent.AgentBridge;
 import adris.altoclef.trackers.BlockScanner;
 import adris.altoclef.commandsystem.CommandExecutor;
@@ -100,8 +98,6 @@ public class AltoClef implements ModInitializer {
     private AgentStore agentStore;
     private AgentAuditLog agentAuditLog;
     private AgentToolRegistry agentTools;
-    private TaskExperienceStore taskExperienceStore;
-    private TutorialIndex tutorialIndex;
     private AgentBridge agentBridge;
     // Pausing
     private boolean paused = false;
@@ -183,17 +179,10 @@ public class AltoClef implements ModInitializer {
         java.nio.file.Path agentRoot = MinecraftClient.getInstance().runDirectory.toPath().resolve("agent");
         agentStore = new AgentStore(agentRoot);
         agentAuditLog = new AgentAuditLog(agentRoot);
-        taskExperienceStore = new TaskExperienceStore(agentStore);
         agentTools = new AgentToolRegistry();
         adris.altoclef.agent.BuiltinAgentTools.register(this, agentTools);
         // The LLM and orchestration run out-of-process. Java remains the Minecraft execution bridge.
         agentBridge = new AgentBridge(this, agentTools, agentAuditLog);
-        try {
-            tutorialIndex = new TutorialIndex(agentStore);
-            tutorialIndex.rebuild();
-        } catch (java.sql.SQLException | java.io.IOException exception) {
-            log("Agent tutorial index unavailable: " + exception.getMessage());
-        }
         initializeCommands();
 
         // Load settings
@@ -258,6 +247,8 @@ public class AltoClef implements ModInitializer {
         // wait for the Python agent.
         easyAISafetyController.tick(this);
         companionSafetyController.tick(this);
+        // Companion task timeout checks (declares tasks failed that never finish).
+        if (companionOrchestrator != null) companionOrchestrator.tick();
 
         // Cancel shortcut
         if (InputHelper.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL) && InputHelper.isKeyPressed(GLFW.GLFW_KEY_K)) {
@@ -496,8 +487,6 @@ public class AltoClef implements ModInitializer {
     public AgentStore getAgentStore() { return agentStore; }
     public AgentAuditLog getAgentAuditLog() { return agentAuditLog; }
     public AgentToolRegistry getAgentTools() { return agentTools; }
-    public TaskExperienceStore getTaskExperienceStore() { return taskExperienceStore; }
-    public TutorialIndex getTutorialIndex() { return tutorialIndex; }
     public AgentBridge getAgentBridge() { return agentBridge; }
 
     public CompanionSession getCompanionSession() {

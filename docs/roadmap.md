@@ -2,13 +2,15 @@
 
 ## Project Status
 
-The project has a vendored AltoClef/Fabric client baseline and a structured companion action orchestrator. It has not yet passed an end-to-end two-client LAN test.
+The project has a vendored AltoClef/Fabric client baseline, a structured companion action orchestrator, and a WebSocket bridge to an out-of-process Python LLM backend. It has not yet passed an end-to-end two-client LAN test.
+
+The Java client was trimmed to two responsibilities: a reflexive safety controller and the Python bridge. Legacy pieces (Java-side LLM parser, tutorial index, task-experience store, private-message command adapter, direct private-chat commands) were removed in 2026-08-28.
 
 ## Milestone 0: Foundation
 
 Establish a dedicated Minecraft Java Edition 1.20.1 client using Java 17, Fabric, and MiranCZ AltoClef with its bundled Baritone. Add companion session state, a self-managed LAN-world configuration, approved player names, and a local home location.
 
-Current implementation: command authorization is limited to the Butler whitelist and only private-message companion commands are accepted. The action orchestrator validates one intent per message, rejects invalid targets and quantities above 64, serializes work by priority, and maps approved requests to AltoClef resource, movement, combat and delivery tasks. Protected positions remain protected. A real LAN run is pending.
+Current implementation: command authorization is limited to the butler whitelist, and the companion reads only public chat (private whispers are ignored). Each message is forwarded to the local Python agent, which maps deterministic requests to the companion action orchestrator and delegates free-form requests to the optional LLM. The action orchestrator validates one intent per message, rejects invalid targets and quantities above 64, serializes work by priority, and maps approved requests to AltoClef resource, movement, combat, and delivery tasks. Protected positions remain protected. A real LAN run is pending.
 
 ## Milestone 1: Reliable Companionship
 
@@ -23,7 +25,7 @@ Implement a single-owner state machine with these states:
 | Safety pause | lava, critically low health, or dangerous fall | bot reports why it stopped and cancels navigation |
 | Stopped | cancellation or emergency stop | all navigation is cancelled |
 
-Acceptance scenario: in a self-managed LAN world, an approved player can issue private-message commands to follow, stop, come, go home, and report status. Each command receives a completion, failure, or cancellation response based on observed game state.
+Acceptance scenario: in a self-managed LAN world, an approved player can issue public-chat requests to follow, stop, come, go home, and report status. Each request receives a completion, failure, or cancellation response based on observed game state. The reflex layer keeps auto-eating, auto-defending, and drowning escape working without any LLM involvement.
 
 ## Milestone 2: Cooperative Tasks
 
@@ -33,7 +35,7 @@ Pending acceptance: PCL-launched dual-client LAN verification of every command, 
 
 ## Milestone 3: Conversation and Memory
 
-Add a small persistent player-preference store and an optional LLM adapter. The LLM may select only allowlisted high-level intents; it cannot emit protocol packets, raw movement, arbitrary chat, or unrestricted actions.
+Add a small persistent player-preference store and keep the optional LLM adapter in the Python backend. The LLM may select only allowlisted high-level intents; it cannot emit protocol packets, raw movement, arbitrary chat, or unrestricted actions.
 
 ## Decisions Log
 
@@ -41,3 +43,4 @@ Add a small persistent player-preference store and an optional LLM adapter. The 
 - 2026-08-27: Limit initial testing to self-managed LAN worlds. The project does not include authentication bypass or anti-cheat evasion.
 - 2026-08-27: Set Minecraft Java Edition 1.20.1 as the first supported protocol version. Later versions require their own compatibility verification before being advertised.
 - 2026-08-27: Treat the product as a dedicated Fabric client that joins a world as a normal player, not as a Mineflayer/protocol bot. The AI layer will select only approved companion intents.
+- 2026-08-28: Trim the Java client to a reflexive safety controller plus a Python bridge. Removed the Java-side LLM parser, tutorial index, task-experience store, direct private-chat companion commands, and the private-whisper path; the companion now listens only to whitelisted public chat.

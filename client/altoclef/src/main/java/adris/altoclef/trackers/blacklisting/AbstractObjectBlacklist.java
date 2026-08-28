@@ -15,6 +15,8 @@ import java.util.HashMap;
  */
 public abstract class AbstractObjectBlacklist<T> {
 
+    private static final int EXPIRY_TICKS = 20 * 30;
+
     private final HashMap<T, BlacklistEntry> entries = new HashMap<>();
 
     public void blackListItem(AltoClef mod, T item, int numberOfFailuresAllowed) {

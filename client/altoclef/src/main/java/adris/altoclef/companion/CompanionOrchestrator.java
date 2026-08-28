@@ -1,18 +1,31 @@
 package adris.altoclef.companion;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.tasks.resources.MineAndCollectTask;
 import adris.altoclef.tasksystem.Task;
 
 import java.util.function.Consumer;
 
-/** Serializes approved companion intents and is the only private-message path to user tasks. */
+/** Serializes approved companion intents into AltoClef user tasks. */
 public final class CompanionOrchestrator {
+
+    /** Maximum ticks a resource collection/crafting/smelting task may run before it is declared failed. */
+    private static final int RESOURCE_TIMEOUT_TICKS = 20 * 300;
+    /** Maximum ticks a movement task (goto/come/home/follow) may run. */
+    private static final int MOVEMENT_TIMEOUT_TICKS = 20 * 120;
+    /** Maximum ticks an attack task may run. */
+    private static final int ATTACK_TIMEOUT_TICKS = 20 * 180;
+    /** Maximum ticks for a give task. */
+    private static final int GIVE_TIMEOUT_TICKS = 20 * 60;
+    /** Protect tasks never time out (they are continuous). */
+    private static final int NO_TIMEOUT = -1;
 
     private final AltoClef mod;
     private final CompanionSession session;
     private final CompanionIntentQueue queue = new CompanionIntentQueue();
     private CompanionIntentQueue.Entry active;
     private long ignoredCompletion = -1;
+    private int remainingTimeoutTicks = NO_TIMEOUT;
 
     public CompanionOrchestrator(AltoClef mod, CompanionSession session) {
         this.mod = mod;
@@ -64,6 +77,25 @@ public final class CompanionOrchestrator {
         return active != null || !queue.isEmpty();
     }
 
+    /** Drives per-tick timeout checks for the active user task. */
+    public void tick() {
+        if (active == null || remainingTimeoutTicks == NO_TIMEOUT) {
+            return;
+        }
+        if (remainingTimeoutTicks > 0) {
+            remainingTimeoutTicks--;
+            return;
+        }
+        // Timeout reached: cancel the task and report failure.
+        CompanionIntentQueue.Entry timedOut = active;
+        active = null;
+        ignoredCompletion = timedOut.sequence();
+        mod.cancelUserTask();
+        timedOut.reply().accept("TASK FAILED (timeout): " + timedOut.intent().describe() + " did not finish in time.");
+        session.setIdle();
+        startNext();
+    }
+
     /** Preserves the interrupted intent for a later resume after AltoClef's survival chains take over. */
     public void safetyPause(String reason) {
         if (active == null) {
@@ -77,6 +109,7 @@ public final class CompanionOrchestrator {
         session.safetyPause(reason);
         interrupted.reply().accept("Paused for safety: " + reason + ". " + queueDescription());
         mod.cancelUserTask();
+        remainingTimeoutTicks = NO_TIMEOUT;
     }
 
     public void resumeAfterSafety() {
@@ -94,6 +127,7 @@ public final class CompanionOrchestrator {
             active = null;
             mod.cancelUserTask();
         }
+        remainingTimeoutTicks = NO_TIMEOUT;
         session.stop();
         reply.accept("Stopped. The task queue was cleared.");
     }
@@ -106,6 +140,7 @@ public final class CompanionOrchestrator {
             mod.cancelUserTask();
             removed = true;
         }
+        remainingTimeoutTicks = NO_TIMEOUT;
         if (removed) {
             session.setIdle();
             reply.accept("Protection disabled.");
@@ -128,6 +163,7 @@ public final class CompanionOrchestrator {
         ignoredCompletion = interrupted.sequence();
         queue.requeue(interrupted);
         mod.cancelUserTask();
+        remainingTimeoutTicks = NO_TIMEOUT;
     }
 
     private void startNext() {
@@ -140,16 +176,16 @@ public final class CompanionOrchestrator {
             Task task = CompanionTaskFactory.create(mod, running.intent(), running.owner());
             updateSessionFor(running.intent(), running.owner());
             running.reply().accept("Executing: " + running.intent().describe() + ".");
-            mod.runUserTask(task, () -> finished(running.sequence()));
+            remainingTimeoutTicks = timeoutTicksFor(running.intent());
+            mod.runUserTask(task, () -> finished(running.sequence(), task));
         } catch (RuntimeException exception) {
             active = null;
-            mod.getTaskExperienceStore().record(running.intent().describe(), "failed", exception.getMessage(), true);
             running.reply().accept("TASK FAILED: " + exception.getMessage());
             startNext();
         }
     }
 
-    private void finished(long sequence) {
+    private void finished(long sequence, Task task) {
         if (sequence == ignoredCompletion) {
             ignoredCompletion = -1;
             return;
@@ -159,7 +195,17 @@ public final class CompanionOrchestrator {
         }
         CompanionIntentQueue.Entry completed = active;
         active = null;
-        mod.getTaskExperienceStore().record(completed.intent().describe(), "completed", null, false);
+        remainingTimeoutTicks = NO_TIMEOUT;
+        if (task instanceof MineAndCollectTask miningTask && miningTask.searchExhausted()) {
+            completed.reply().accept("TASK FAILED: " + completed.intent().describe()
+                    + " could not find a reachable target block.");
+            session.setIdle();
+            startNext();
+            if (!isActive()) {
+                session.releaseOwnerIfInactive();
+            }
+            return;
+        }
         if (completed.intent().type() != CompanionIntent.Type.PROTECT) {
             completed.reply().accept("Finished: " + completed.intent().describe() + ".");
         }
@@ -172,6 +218,17 @@ public final class CompanionOrchestrator {
         if (!isActive()) {
             session.releaseOwnerIfInactive();
         }
+    }
+
+    private static int timeoutTicksFor(CompanionIntent intent) {
+        return switch (intent.type()) {
+            case COLLECT, CRAFT, SMELT -> RESOURCE_TIMEOUT_TICKS;
+            case GOTO, FOLLOW, COME, HOME -> MOVEMENT_TIMEOUT_TICKS;
+            case ATTACK -> ATTACK_TIMEOUT_TICKS;
+            case GIVE -> GIVE_TIMEOUT_TICKS;
+            case PROTECT -> NO_TIMEOUT;
+            case STATUS, QUEUE, STOP, UNPROTECT -> NO_TIMEOUT;
+        };
     }
 
     private void updateSessionFor(CompanionIntent intent, String owner) {

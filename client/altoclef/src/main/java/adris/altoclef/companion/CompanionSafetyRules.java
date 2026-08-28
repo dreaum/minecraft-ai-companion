@@ -5,8 +5,6 @@ import java.util.Optional;
 /** Pure safety policy so its thresholds are testable without a Minecraft client. */
 public final class CompanionSafetyRules {
 
-    private static final float MINIMUM_MOVEMENT_HEALTH = 6.0F;
-    private static final int MINIMUM_MOVEMENT_FOOD = 3;
     private static final double DANGEROUS_FALL_SPEED = -0.7D;
 
     private CompanionSafetyRules() {
@@ -19,8 +17,9 @@ public final class CompanionSafetyRules {
     }
 
     /**
-     * Checks hazards that must preempt an assigned companion task. The survival chains own the
-     * recovery itself; this policy only decides when the orchestrator must yield to them.
+     * Checks hazards without a reliable automatic recovery chain. Environmental hazards such as
+     * water, lava, fire, and hunger are deliberately excluded: survival chains temporarily
+     * preempt the user task and then let it continue.
      */
     public static Optional<String> evaluate(boolean movementActive, boolean inLava, boolean onFire,
                                             float health, int foodLevel, boolean submergedInWater,
@@ -29,25 +28,13 @@ public final class CompanionSafetyRules {
         if (!movementActive) {
             return Optional.empty();
         }
-        if (inLava) {
-            return Optional.of("lava detected");
-        }
-        if (onFire) {
-            return Optional.of("fire detected");
-        }
+        // Water, lava, fire, hunger and low health are all handled by AltoClef's
+        // survival chains (SurfaceFromWaterTask / EscapeFromLavaTask / FoodChain).
+        // They temporarily preempt the user task instead of cancelling it, so the
+        // companion keeps making progress once it is safe again. Only hazards with
+        // no reliable automatic recovery still pause the task.
         if (suffocating) {
             return Optional.of("suffocation detected");
-        }
-        // Yield immediately while submerged. The survival chain additionally handles an
-        // observed loss of air as a fallback when the client has not flagged submersion.
-        if (submergedInWater || air < Math.min(40, maxAir / 4)) {
-            return Optional.of("drowning risk detected");
-        }
-        if (health <= MINIMUM_MOVEMENT_HEALTH) {
-            return Optional.of("health is critically low");
-        }
-        if (foodLevel <= MINIMUM_MOVEMENT_FOOD) {
-            return Optional.of("hunger is critically low");
         }
         if (!safelyGrounded && verticalVelocity < DANGEROUS_FALL_SPEED) {
             return Optional.of("dangerous fall detected");

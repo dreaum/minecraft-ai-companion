@@ -107,10 +107,8 @@ public class PlaceObsidianBucketTask extends Task {
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
 
-        // Reset progress if pathing
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            _progressChecker.reset();
-        }
+        // Do NOT reset progress while pathing: it would prevent the checker from
+        // ever detecting a stalled approach.
 
         // Clear leftover water
         if (mod.getBlockScanner().isBlockAtPosition(_pos, Blocks.OBSIDIAN) && mod.getBlockScanner().isBlockAtPosition(_pos.up(), Blocks.WATER)) {

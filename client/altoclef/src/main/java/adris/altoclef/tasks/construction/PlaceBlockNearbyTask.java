@@ -75,9 +75,8 @@ public class PlaceBlockNearbyTask extends Task {
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
 
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            progressChecker.reset();
-        }
+        // Do NOT reset the progress checker while Baritone is pathing: it would
+        // prevent the checker from ever detecting a stalled approach.
         // Method:
         // - If looking at placable block
         //      Place immediately

@@ -28,21 +28,19 @@ public final class BuiltinAgentTools {
 
     public static void register(AltoClef mod, AgentToolRegistry registry) {
         registry.register(new ObserveWorldTool(mod));
+        registry.register(new NearbyBlocksTool(mod));
         registry.register(new StopAllTool(mod));
         registry.register(new PressKeyTool(mod));
         registry.register(new ReleaseKeyTool(mod));
         registry.register(new LookTool(mod));
         registry.register(new AltoClefTaskTool(mod));
         registry.register(new BaritoneGoalTool(mod));
-        registry.register(new ChatPrivateTool(mod));
         registry.register(new ChatPublicTool(mod));
         registry.register(new MoveTool(mod));
         registry.register(new InventoryTool());
         registry.register(new AttackEntityTool(mod));
         registry.register(new InteractBlockTool(mod));
         registry.register(new BaritoneCancelTool(mod));
-        registry.register(new TutorialSearchTool(mod));
-        registry.register(new TutorialReadTool(mod));
         registry.register(new UseItemTool(mod));
         registry.register(new SelectHotbarTool());
         registry.register(new DropItemTool());
@@ -104,6 +102,31 @@ public final class BuiltinAgentTools {
         }
     }
 
+    private static final class NearbyBlocksTool implements AgentTool {
+        private final AltoClef mod;
+        NearbyBlocksTool(AltoClef mod) { this.mod = mod; }
+        public String name() { return "inspect_nearby_blocks"; }
+        public JsonNode schema() { return BuiltinAgentTools.schema("{\"radius\":{\"type\":\"number\",\"minimum\":1,\"maximum\":64},\"max_results\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":1000}}", "[]"); }
+        public ToolResult execute(JsonNode args) {
+            if (mod.getPlayer() == null || mod.getWorld() == null) return ToolResult.failed("not in a world");
+            double radius = Math.max(1, Math.min(64, args.path("radius").asDouble(16)));
+            int max = Math.max(1, Math.min(1000, args.path("max_results").asInt(500)));
+            mod.getBlockScanner().scanNearbyBlocks(mod.getPlayer().getPos(), radius);
+            ObjectNode out = JSON.createObjectNode();
+            out.put("radius", radius); out.put("source", "BlockScanner");
+            var blocks = out.putArray("blocks");
+            for (BlockPos pos : mod.getBlockScanner().getNearbyLocations(mod.getPlayer().getPos(), radius)) {
+                if (blocks.size() >= max) break;
+                var state = mod.getWorld().getBlockState(pos);
+                var item = blocks.addObject(); item.put("id", state.getBlock().toString());
+                item.put("x", pos.getX()); item.put("y", pos.getY()); item.put("z", pos.getZ());
+                item.put("distance", Math.sqrt(pos.getSquaredDistance(mod.getPlayer().getPos())));
+            }
+            out.put("count", blocks.size());
+            return ToolResult.completed(out);
+        }
+    }
+
     private static final class StopAllTool implements AgentTool {
         private final AltoClef mod;
         StopAllTool(AltoClef mod) { this.mod = mod; }
@@ -161,19 +184,6 @@ public final class BuiltinAgentTools {
             var goal = new GoalBlock(new BlockPos(args.path("x").asInt(), args.path("y").asInt(), args.path("z").asInt()));
             mod.getClientBaritone().getCustomGoalProcess().setGoalAndPath(goal);
             return ToolResult.running(JSON.createObjectNode().put("x", args.path("x").asInt()).put("y", args.path("y").asInt()).put("z", args.path("z").asInt()));
-        }
-    }
-
-    private static final class ChatPrivateTool implements AgentTool {
-        private final AltoClef mod;
-        ChatPrivateTool(AltoClef mod) { this.mod = mod; }
-        public String name() { return "chat_private"; }
-        public JsonNode schema() { return BuiltinAgentTools.schema("{\"message\":{\"type\":\"string\"}}", "[\"message\"]"); }
-        public ToolResult execute(JsonNode args) {
-            String owner = mod.getButler().getCurrentUser();
-            if (owner == null) return ToolResult.failed("no authorized owner session");
-            mod.getButler().sendPrivate(owner, args.path("message").asText(""), MessagePriority.TIMELY);
-            return ToolResult.completed(JSON.createObjectNode().put("sent", true));
         }
     }
 
@@ -337,29 +347,5 @@ public final class BuiltinAgentTools {
         public String name() { return "baritone_cancel"; }
         public JsonNode schema() { return BuiltinAgentTools.schema("{}", "[]"); }
         public ToolResult execute(JsonNode args) { mod.getClientBaritone().getPathingBehavior().forceCancel(); mod.getClientBaritone().getCustomGoalProcess().setGoal(null); return ToolResult.completed(JSON.createObjectNode().put("cancelled", true)); }
-    }
-
-    private static final class TutorialSearchTool implements AgentTool {
-        private final AltoClef mod;
-        TutorialSearchTool(AltoClef mod) { this.mod = mod; }
-        public String name() { return "search_tutorial"; }
-        public JsonNode schema() { return BuiltinAgentTools.schema("{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"}}", "[\"query\"]"); }
-        public ToolResult execute(JsonNode args) {
-            if (mod.getTutorialIndex() == null) return ToolResult.failed("tutorial index unavailable");
-            try { var hits = mod.getTutorialIndex().search(args.path("query").asText(), args.path("limit").asInt(5)); var out = JSON.createArrayNode(); for (var hit : hits) out.add(JSON.createObjectNode().put("id", hit.id()).put("title", hit.title()).put("path", hit.path()).put("snippet", hit.snippet())); return ToolResult.completed(out); }
-            catch (java.sql.SQLException e) { return ToolResult.failed("tutorial search failed: " + e.getMessage()); }
-        }
-    }
-
-    private static final class TutorialReadTool implements AgentTool {
-        private final AltoClef mod;
-        TutorialReadTool(AltoClef mod) { this.mod = mod; }
-        public String name() { return "read_tutorial"; }
-        public JsonNode schema() { return BuiltinAgentTools.schema("{\"id\":{\"type\":\"string\"}}", "[\"id\"]"); }
-        public ToolResult execute(JsonNode args) {
-            if (mod.getTutorialIndex() == null) return ToolResult.failed("tutorial index unavailable");
-            try { return ToolResult.completed(JSON.createObjectNode().put("id", args.path("id").asText()).put("content", mod.getTutorialIndex().read(args.path("id").asText()))); }
-            catch (java.io.IOException e) { return ToolResult.failed(e.getMessage()); }
-        }
     }
 }

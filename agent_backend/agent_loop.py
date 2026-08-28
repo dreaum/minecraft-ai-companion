@@ -105,7 +105,7 @@ class AgentLoop:
                 # Alto Clef/Baritone owns long-running game tasks after they
                 # are queued. Asking the LLM for another decision immediately
                 # causes duplicate collect/follow/path commands.
-                terminal = call.get("tool") in {"chat_private", "chat_public", "chat", "altoclef_task", "baritone_goal"}
+                terminal = call.get("tool") in {"chat_public", "altoclef_task", "baritone_goal"}
                 self.pending[request_id] = (user, direct is not None, terminal)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", request_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":request_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})
@@ -143,7 +143,7 @@ class AgentLoop:
             next_ids = [str(uuid.uuid4()) for _ in calls]
             self._append_assistant_tool_calls(response, calls, next_ids)
             for next_id, call in zip(next_ids, calls):
-                next_terminal = call.get("tool") in {"chat_private", "chat_public", "chat", "altoclef_task", "baritone_goal"}
+                next_terminal = call.get("tool") in {"chat_public", "altoclef_task", "baritone_goal"}
                 self.pending[next_id] = (user, False, next_terminal)
                 self.log.info("tool_call_sent id=%s user=%s tool=%s", next_id, user, call["tool"])
                 await self.send({"type":"tool_call", "id":next_id, "user":user, "tool":call["tool"], "arguments":call["arguments"]})

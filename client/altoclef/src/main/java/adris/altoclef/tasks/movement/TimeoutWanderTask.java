@@ -159,10 +159,8 @@ public class TimeoutWanderTask extends Task implements ITaskRequiresGrounded {
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
 
-
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            progressChecker.reset();
-        }
+        // Do NOT reset the progress checker while Baritone is pathing: doing so every
+        // tick prevents failCounter from ever accumulating, so wandering never gives up.
         if (WorldHelper.isInNetherPortal()) {
             if (!mod.getClientBaritone().getPathingBehavior().isPathing()) {
                 setDebugState("Getting out from nether portal");
@@ -226,10 +224,10 @@ public class TimeoutWanderTask extends Task implements ITaskRequiresGrounded {
         }
         if (!progressChecker.check(mod)) {
             progressChecker.reset();
-            if (!_forceExplore) {
-                failCounter++;
-                Debug.logMessage("Failed exploring.");
-            }
+            // Even forced exploration must eventually give up; otherwise a task with
+            // no obtainable target wanders forever and never reports failure.
+            failCounter++;
+            Debug.logMessage("Failed exploring.");
         }
         return null;
     }
@@ -250,12 +248,14 @@ public class TimeoutWanderTask extends Task implements ITaskRequiresGrounded {
         // Why the heck did I add this in?
         //if (_origin == null) return true;
 
-        if (Float.isInfinite(distanceToWander)) return false;
-
         // If we fail 10 times or more, we may as well try the previous task again.
+        // This also applies to the infinite-distance fallback wander (used when no
+        // target could be found): it must give up eventually instead of wandering forever.
         if (failCounter > 10) {
             return true;
         }
+
+        if (Float.isInfinite(distanceToWander)) return false;
 
         ClientPlayerEntity player = AltoClef.getInstance().getPlayer();
 

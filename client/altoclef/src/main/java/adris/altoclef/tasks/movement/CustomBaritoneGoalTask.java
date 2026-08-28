@@ -108,10 +108,9 @@ public abstract class CustomBaritoneGoalTask extends Task implements ITaskRequir
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
         InputControls controls = mod.getInputControls();
-        
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            checker.reset();
-        }
+
+        // Do NOT reset the progress checker while Baritone is pathing: it would
+        // prevent the checker from ever detecting a stalled route to the goal.
         if (WorldHelper.isInNetherPortal()) {
             if (!mod.getClientBaritone().getPathingBehavior().isPathing()) {
                 setDebugState("Getting out from nether portal");

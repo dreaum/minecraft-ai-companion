@@ -134,12 +134,11 @@ public class ConstructNetherPortalBucketTask extends Task {
                 return null;
             }
         }
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            progressChecker.reset();
-        }
+        // Do NOT reset the progress checker while Baritone is pathing or while a
+        // wander subtask is active: it would prevent the checker from ever detecting
+        // a stalled approach.
         if (wanderTask.isActive() && !wanderTask.isFinished()) {
             setDebugState("Trying again.");
-            progressChecker.reset();
             return wanderTask;
         }
 

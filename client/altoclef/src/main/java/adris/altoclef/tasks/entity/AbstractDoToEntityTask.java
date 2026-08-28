@@ -72,10 +72,8 @@ public abstract class AbstractDoToEntityTask extends Task implements ITaskRequir
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
 
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            progress.reset();
-        }
-
+        // Do NOT reset progress while Baritone is pathing: it would prevent the
+        // checker from ever detecting a stalled approach to the target entity.
         Optional<Entity> checkEntity = getEntityTarget(mod);
 
 

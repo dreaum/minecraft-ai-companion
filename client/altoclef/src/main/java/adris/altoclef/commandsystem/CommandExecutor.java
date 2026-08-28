@@ -36,7 +36,7 @@ public class CommandExecutor {
     }
 
     public boolean isClientCommand(String line) {
-        return line.startsWith(getCommandPrefix());
+        return line.startsWith(getCommandPrefix()) || line.startsWith(".");
     }
 
     // This is how we "nest" command finishes so we can complete them in order.
@@ -65,7 +65,11 @@ public class CommandExecutor {
 
     public void execute(String line, Runnable onFinish, Consumer<CommandException> getException) {
         if (!isClientCommand(line)) return;
-        line = line.substring(getCommandPrefix().length());
+        if (line.startsWith(".") && !line.startsWith(getCommandPrefix())) {
+            line = line.substring(1);
+        } else {
+            line = line.substring(getCommandPrefix().length());
+        }
         // Run commands separated by ;
         String[] parts = line.split(";");
         Command[] commands = new Command[parts.length];

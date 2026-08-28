@@ -235,9 +235,8 @@ public class InteractWithBlockTask extends Task {
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
 
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            moveChecker.reset();
-        }
+        // Do NOT reset the move checker while Baritone is pathing: it would
+        // prevent the checker from ever detecting a stalled approach.
         if (WorldHelper.isInNetherPortal()) {
             if (!mod.getClientBaritone().getPathingBehavior().isPathing()) {
                 setDebugState("Getting out from nether portal");

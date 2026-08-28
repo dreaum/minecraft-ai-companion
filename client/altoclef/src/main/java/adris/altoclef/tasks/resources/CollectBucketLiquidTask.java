@@ -88,9 +88,8 @@ public class CollectBucketLiquidTask extends ResourceTask {
 
     @Override
     protected Task onResourceTick(AltoClef mod) {
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            progressChecker.reset();
-        }
+        // Do NOT reset progress while pathing: it would prevent the checker from
+        // ever detecting a stalled approach to the liquid source.
         // If we're standing inside a liquid, go pick it up.
         if (tryImmediatePickupTimer.elapsed() && !mod.getItemStorage().hasItem(Items.WATER_BUCKET)) {
             Block standingInside = mod.getWorld().getBlockState(mod.getPlayer().getBlockPos()).getBlock();

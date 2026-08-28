@@ -112,9 +112,8 @@ public final class AgentBridge implements WebSocket.Listener {
             ToolResult result = tools.callAndAudit(caller, message.path("tool").asText(""), message.path("arguments"), audit);
             ObjectNode reply = JSON.createObjectNode(); reply.put("type", "tool_result"); reply.put("id", id); reply.setAll(result.toJson()); send(reply);
         } else if ("agent_error".equals(message.path("type").asText())) {
-            String user = message.path("user").asText("");
             String error = message.path("error").asText("unknown agent error");
-            if (!user.isBlank()) mod.getButler().sendPublic("AI failed: " + error, MessagePriority.ASAP);
+            mod.getButler().sendPublic("AI failed: " + error, MessagePriority.ASAP);
             mod.log("Agent error: " + error);
         } else if ("agent_message".equals(message.path("type").asText())) {
             String text = message.path("message").asText("").trim();

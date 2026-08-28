@@ -107,9 +107,8 @@ public class GetToEntityTask extends Task implements ITaskRequiresGrounded {
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
 
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            _progress.reset();
-        }
+        // Do NOT reset the progress checker while Baritone is pathing: it would
+        // prevent the checker from ever detecting a stalled route to the entity.
         if (WorldHelper.isInNetherPortal()) {
             if (!mod.getClientBaritone().getPathingBehavior().isPathing()) {
                 setDebugState("Getting out from nether portal");

@@ -8,6 +8,7 @@ import adris.altoclef.tasks.AbstractDoToClosestObjectTask;
 import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasks.construction.DestroyBlockTask;
 import adris.altoclef.tasks.movement.PickupDroppedItemTask;
+import adris.altoclef.tasks.movement.TimeoutWanderTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.MiningRequirement;
@@ -120,6 +121,16 @@ public class MineAndCollectTask extends ResourceTask {
     }
 
     @Override
+    public boolean isFinished() {
+        return super.isFinished() || _subtask.searchExhausted();
+    }
+
+    /** True when the task ended because no obtainable target was found. */
+    public boolean searchExhausted() {
+        return _subtask.searchExhausted();
+    }
+
+    @Override
     protected String toDebugStringName() {
         return "Mine And Collect";
     }
@@ -160,6 +171,9 @@ public class MineAndCollectTask extends ResourceTask {
         private final MovementProgressChecker progressChecker = new MovementProgressChecker();
         private final Task _pickupTask;
         private BlockPos miningPos;
+        private int emptyScanTicks;
+        private boolean searchExhausted;
+        private static final int MAX_EMPTY_SCAN_TICKS = 20 * 10;
 
         public MineOrCollectTask(Block[] blocks, ItemTarget[] targets) {
             _blocks = blocks;
@@ -180,7 +194,8 @@ public class MineAndCollectTask extends ResourceTask {
 
         @Override
         protected Optional<Object> getClosestTo(AltoClef mod, Vec3d pos) {
-            Pair<Double, Optional<BlockPos>> closestBlock = getClosestBlock(mod,pos,  _blocks);
+            mod.getBlockScanner().scanNearbyBlocks(pos, 32);
+            Pair<Double, Optional<BlockPos>> closestBlock = getClosestAvailableBlock(mod, pos);
             Pair<Double, Optional<ItemEntity>> closestDrop = getClosestItemDrop(mod,pos,  _targets);
 
             double blockSq = closestBlock.getLeft();
@@ -211,10 +226,22 @@ public class MineAndCollectTask extends ResourceTask {
             );
         }
 
-        public static Pair<Double,Optional<BlockPos> > getClosestBlock(AltoClef mod,Vec3d pos ,Block... blocks) {
+        private Pair<Double, Optional<BlockPos>> getClosestAvailableBlock(AltoClef mod, Vec3d pos) {
+            Optional<BlockPos> closestBlock = mod.getBlockScanner().getNearestBlock(pos, check -> {
+                if (blacklist.contains(check)) return false;
+                if (mod.getBlockScanner().isUnreachable(check)) return false;
+                return WorldHelper.canExplicitlyBreak(check);
+            }, _blocks);
+            return new Pair<>(
+                    closestBlock.map(blockPos -> BlockPosVer.getSquaredDistance(blockPos, pos)).orElse(Double.POSITIVE_INFINITY),
+                    closestBlock
+            );
+        }
+
+        public static Pair<Double, Optional<BlockPos>> getClosestBlock(AltoClef mod, Vec3d pos, Block... blocks) {
             Optional<BlockPos> closestBlock = mod.getBlockScanner().getNearestBlock(pos, check -> {
                 if (mod.getBlockScanner().isUnreachable(check)) return false;
-                return WorldHelper.canBreak(mod, check);
+                return WorldHelper.canExplicitlyBreak(check);
             }, blocks);
 
             return new Pair<>(
@@ -231,19 +258,31 @@ public class MineAndCollectTask extends ResourceTask {
         @Override
         protected Task onTick() {
             AltoClef mod = AltoClef.getInstance();
+            if (StorageHelper.itemTargetsMetInventoryNoCursor(_targets)) return null;
 
-            if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-                progressChecker.reset();
-            }
+            // Do not reset while Baritone is pathing. Resetting every tick prevents
+            // MovementProgressChecker from ever detecting a stalled route.
             if (miningPos != null && !progressChecker.check(mod)) {
                 mod.getClientBaritone().getPathingBehavior().forceCancel();
                 Debug.logMessage("Failed to mine block. Suggesting it may be unreachable.");
-                mod.getBlockScanner().requestBlockUnreachable(miningPos, 2);
-                blacklist.add(miningPos);
+                // A single stalled route is not enough evidence to permanently hide a nearby resource.
+                // Keep the failure local to this task; the scanner blacklist is shared globally.
+                blacklist.add(miningPos.toImmutable());
                 miningPos = null;
                 progressChecker.reset();
             }
-            return super.onTick();
+            Task next = super.onTick();
+            if (next instanceof TimeoutWanderTask) {
+                emptyScanTicks++;
+                if (emptyScanTicks >= MAX_EMPTY_SCAN_TICKS) {
+                    Debug.logMessage("Failed to find a reachable target block after exploration.");
+                    searchExhausted = true;
+                    return null;
+                }
+            } else if (next != null) {
+                emptyScanTicks = 0;
+            }
+            return next;
         }
 
         @Override
@@ -265,7 +304,9 @@ public class MineAndCollectTask extends ResourceTask {
         @Override
         protected boolean isValid(AltoClef mod, Object obj) {
             if (obj instanceof BlockPos b) {
-                return mod.getBlockScanner().isBlockAtPosition(b, _blocks) && WorldHelper.canBreak(b);
+                if (blacklist.contains(b)) return false;
+                return !mod.getBlockScanner().isUnreachable(b)
+                        && mod.getBlockScanner().isBlockAtPosition(b, _blocks) && WorldHelper.canExplicitlyBreak(b);
             }
             if (obj instanceof ItemEntity drop) {
                 Item item = drop.getStack().getItem();
@@ -283,6 +324,9 @@ public class MineAndCollectTask extends ResourceTask {
         protected void onStart() {
             progressChecker.reset();
             miningPos = null;
+            blacklist.clear();
+            emptyScanTicks = 0;
+            searchExhausted = false;
         }
 
         @Override
@@ -309,6 +353,10 @@ public class MineAndCollectTask extends ResourceTask {
 
         public BlockPos miningPos() {
             return miningPos;
+        }
+
+        public boolean searchExhausted() {
+            return searchExhausted;
         }
     }
 

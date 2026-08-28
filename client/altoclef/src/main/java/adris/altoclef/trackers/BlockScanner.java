@@ -27,7 +27,7 @@ public class BlockScanner {
 
     private static final boolean LOG = false;
     private static final int RESCAN_TICK_DELAY = 4 * 20;
-    private static final int CACHED_POSITIONS_PER_BLOCK = 40;
+    private static final int CACHED_POSITIONS_PER_BLOCK = 256;
 
 
     private final AltoClef mod;
@@ -82,6 +82,59 @@ public class BlockScanner {
 
     public boolean isUnreachable(BlockPos pos) {
         return blacklist.unreachable(pos);
+    }
+
+    /** Immediately scans loaded blocks in the requested radius and updates the shared cache. */
+    public List<BlockPos> scanNearbyBlocks(Vec3d center, double radius) {
+        if (mod.getWorld() == null || mod.getPlayer() == null) return List.of();
+        int minX = (int) Math.floor(center.x - radius);
+        int maxX = (int) Math.ceil(center.x + radius);
+        int minY = Math.max(mod.getWorld().getBottomY(), (int) Math.floor(center.y - radius));
+        int maxY = Math.min(mod.getWorld().getTopY() - 1, (int) Math.ceil(center.y + radius));
+        int minZ = (int) Math.floor(center.z - radius);
+        int maxZ = (int) Math.ceil(center.z + radius);
+        int minChunkX = minX >> 4, maxChunkX = maxX >> 4;
+        int minChunkZ = minZ >> 4, maxChunkZ = maxZ >> 4;
+        Set<BlockPos> scanned = new HashSet<>();
+        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                if (!mod.getWorld().getChunkManager().isChunkLoaded(cx, cz)) continue;
+                WorldChunk chunk = mod.getWorld().getChunk(cx, cz);
+                for (int x = Math.max(minX, cx << 4); x <= Math.min(maxX, (cx << 4) + 15); x++) {
+                    for (int y = minY; y <= maxY; y++) {
+                        for (int z = Math.max(minZ, cz << 4); z <= Math.min(maxZ, (cz << 4) + 15); z++) {
+                            BlockPos pos = new BlockPos(x, y, z);
+                            if (!pos.isWithinDistance(center, radius)) continue;
+                            BlockState state = chunk.getBlockState(pos);
+                            if (!state.isAir()) {
+                                scanned.add(pos);
+                                addScannedPosition(state.getBlock(), pos);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (HashSet<BlockPos> positions : trackedBlocks.values()) positions.removeIf(pos -> pos.isWithinDistance(center, radius) && !scanned.contains(pos));
+        return new ArrayList<>(scanned);
+    }
+
+    private void addScannedPosition(Block block, BlockPos pos) {
+        trackedBlocks.computeIfAbsent(block, ignored -> new HashSet<>()).add(pos.toImmutable());
+    }
+
+    /** Returns all currently cached, still-present block locations within a radius. */
+    public List<BlockPos> getNearbyLocations(Vec3d center, double radius) {
+        double radiusSq = radius * radius;
+        List<BlockPos> result = new ArrayList<>();
+        for (HashSet<BlockPos> positions : trackedBlocks.values()) {
+            for (BlockPos pos : positions) {
+                if (isUnreachable(pos) || !pos.isWithinDistance(center, radius)) continue;
+                if (mod.getWorld() == null || !mod.getWorld().getBlockState(pos).isAir()) result.add(pos.toImmutable());
+            }
+        }
+        result.sort(Comparator.comparingDouble(pos -> pos.getSquaredDistance(center.x, center.y, center.z)));
+        return result;
     }
 
     public List<BlockPos> getKnownLocations(Block... blocks) {
@@ -354,28 +407,23 @@ public class BlockScanner {
 
         ChunkPos playerChunkPos = mod.getPlayer().getChunkPos();
         Vec3d playerPos = mod.getPlayer().getPos();
-
         HashSet<ChunkPos> visited = new HashSet<>();
         Queue<Node> queue = new ArrayDeque<>();
         queue.add(new Node(playerChunkPos, 0));
 
+        // Use the version-compatible loaded-chunk check; never request chunks.
         while (!queue.isEmpty() && visited.size() < maxCount && !forceStop) {
             Node node = queue.poll();
-
-            if (node.distance > cutOffRadius || visited.contains(node.pos) || !mod.getWorld().getChunkManager().isChunkLoaded(node.pos.x, node.pos.z))
-                continue;
-
-            boolean isPriorityChunk = getChunkDist(node.pos, playerChunkPos) <= 2;
-            if (!isPriorityChunk && scannedChunks.containsKey(node.pos) && mod.getWorld().getTime() - scannedChunks.get(node.pos) < RESCAN_TICK_DELAY)
-                continue;
-
+            if (node.distance > cutOffRadius || visited.contains(node.pos)
+                    || !mod.getWorld().getChunkManager().isChunkLoaded(node.pos.x, node.pos.z)) continue;
+            if (scannedChunks.containsKey(node.pos)
+                    && mod.getWorld().getTime() - scannedChunks.get(node.pos) < RESCAN_TICK_DELAY) continue;
             visited.add(node.pos);
             scanChunk(node.pos, playerChunkPos);
-
-            queue.add(new Node(new ChunkPos(node.pos.x + 1, node.pos.z + 1), node.distance + 1));
-            queue.add(new Node(new ChunkPos(node.pos.x - 1, node.pos.z + 1), node.distance + 1));
-            queue.add(new Node(new ChunkPos(node.pos.x - 1, node.pos.z - 1), node.distance + 1));
-            queue.add(new Node(new ChunkPos(node.pos.x + 1, node.pos.z - 1), node.distance + 1));
+            queue.add(new Node(new ChunkPos(node.pos.x + 1, node.pos.z), node.distance + 1));
+            queue.add(new Node(new ChunkPos(node.pos.x - 1, node.pos.z), node.distance + 1));
+            queue.add(new Node(new ChunkPos(node.pos.x, node.pos.z + 1), node.distance + 1));
+            queue.add(new Node(new ChunkPos(node.pos.x, node.pos.z - 1), node.distance + 1));
         }
         if (forceStop) {
             // reset again, might have changed some values from the time forceStop was called

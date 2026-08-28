@@ -32,11 +32,11 @@ class CompanionIntentParserTest {
     }
 
     @Test
-    void givesProtectAndMovementTheirSchedulingPriorities() {
+    void ordersProtectThenWorkThenMovementPriorities() {
         assertTrue(CompanionIntent.simple(CompanionIntent.Type.PROTECT).priority()
-                > CompanionIntent.simple(CompanionIntent.Type.FOLLOW).priority());
-        assertTrue(CompanionIntent.simple(CompanionIntent.Type.FOLLOW).priority()
                 > CompanionIntent.target(CompanionIntent.Type.COLLECT, "iron_ingot", 1).priority());
+        assertTrue(CompanionIntent.target(CompanionIntent.Type.COLLECT, "iron_ingot", 1).priority()
+                > CompanionIntent.simple(CompanionIntent.Type.FOLLOW).priority());
         assertTrue(CompanionIntent.simple(CompanionIntent.Type.STATUS).isReadOnly());
     }
 

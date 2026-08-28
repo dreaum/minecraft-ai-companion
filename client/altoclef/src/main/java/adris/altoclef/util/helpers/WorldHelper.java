@@ -233,7 +233,7 @@ public interface WorldHelper {
         return -1;
     }
 
-    static boolean canBreak(BlockPos pos) {
+    public static boolean canBreak(BlockPos pos) {
         AltoClef altoClef = AltoClef.getInstance();
 
         // JANK: Temporarily check if we can break WITHOUT paused interactions.
@@ -250,6 +250,22 @@ public interface WorldHelper {
         altoClef.getExtraBaritoneSettings().setInteractionPaused(prevInteractionPaused);
 
         return canBreak;
+    }
+
+    /**
+     * Checks whether a resource task may explicitly break its selected target.
+     *
+     * Baritone pathing deliberately keeps {@code allowBreak} disabled so it does
+     * not destroy incidental terrain. That setting must not make an already
+     * selected resource target invisible to {@code MineAndCollectTask}; the
+     * actual block destruction is performed by {@code DestroyBlockTask}, not by
+     * the pathfinder. Keep the protected-position and reachability checks here.
+     */
+    public static boolean canExplicitlyBreak(BlockPos pos) {
+        AltoClef altoClef = AltoClef.getInstance();
+        return altoClef.getWorld().getBlockState(pos).getHardness(altoClef.getWorld(), pos) >= 0
+                && !altoClef.getExtraBaritoneSettings().shouldAvoidBreaking(pos)
+                && canReach(pos);
     }
 
     static boolean isInNetherPortal() {

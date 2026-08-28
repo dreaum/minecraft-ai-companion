@@ -13,7 +13,6 @@ import baritone.api.utils.input.Input;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -38,6 +37,7 @@ public class FoodChain extends SingleTaskChain {
     private boolean requestFillup = false;
     private boolean needsFood = false;
     private Optional<Item> cachedPerfectFood = Optional.empty();
+    private int cachedMinFoodHunger = Integer.MAX_VALUE;
     private boolean shouldStop = false;
 
     public FoodChain(TaskRunner runner) {
@@ -50,7 +50,6 @@ public class FoodChain extends SingleTaskChain {
     }
 
     private void startEat(AltoClef mod, Item food) {
-        //Debug.logInternal("EATING " + toUse.getTranslationKey() + " : " + test);
         if (mod.getPlayer().isBlocking()) {
             mod.log("want to eat, trying to stop shielding...");
             mod.getInputControls().release(Input.CLICK_RIGHT);
@@ -59,7 +58,7 @@ public class FoodChain extends SingleTaskChain {
 
         isTryingToEat = true;
         requestFillup = true;
-        mod.getSlotHandler().forceEquipItem(new Item[]{food}, true); //"true" because it's food
+        mod.getSlotHandler().forceEquipItem(new Item[]{food}, true);
         mod.getInputControls().hold(Input.CLICK_RIGHT);
         mod.getExtraBaritoneSettings().setInteractionPaused(true);
     }
@@ -117,20 +116,12 @@ public class FoodChain extends SingleTaskChain {
             return Float.NEGATIVE_INFINITY;
         }
 
-        // do NOT eat while in lava if we are escaping it (spaghetti code dependencies go brrrr)
+        // do NOT eat while in lava; EscapeFromLavaTask owns survival there
         if (mod.getPlayer().isInLava()) {
             stopEat();
             return Float.NEGATIVE_INFINITY;
         }
 
-        /*
-        - Eats if:
-        - We're hungry and have food that fits
-            - We're low on health and maybe a little bit hungry
-            - We're very low on health and are even slightly hungry
-        - We're kind of hungry and have food that fits perfectly
-         */
-        // We're in danger, don't eat now!!
         if (!mod.getMLGBucketChain().doneMLG() || mod.getMLGBucketChain().isFalling(mod) ||
                 mod.getPlayer().isBlocking() || shouldStop) {
             stopEat();
@@ -140,23 +131,18 @@ public class FoodChain extends SingleTaskChain {
         int cachedFoodScore = calculation.getLeft();
         cachedPerfectFood = calculation.getRight();
         hasFood = cachedFoodScore > 0;
-        // If we requested a fillup but we're full, stop.
         if (requestFillup && mod.getPlayer().getHungerManager().getFoodLevel() >= 20) {
             requestFillup = false;
         }
-        // If we no longer have food, we no longer can eat.
         if (!hasFood) {
             requestFillup = false;
         }
 
-        //FIXME should check if currently fighting
         if (hasFood && (needsToEat() || requestFillup) && cachedPerfectFood.isPresent() &&
-                !mod.getMLGBucketChain().isChorusFruiting() && !mod.getPlayer().isBlocking()/* &&
-                !areEnemiesNearby(mod)*/) {
+                !mod.getMLGBucketChain().isChorusFruiting() && !mod.getPlayer().isBlocking()) {
 
             Item toUse = cachedPerfectFood.get();
 
-            // Make sure we're not facing a container
             if (!LookHelper.tryAvoidingInteractable(mod)) {
                 return Float.NEGATIVE_INFINITY;
             }
@@ -169,33 +155,17 @@ public class FoodChain extends SingleTaskChain {
 
         if (needsFood || cachedFoodScore < settings.getMinimumFoodAllowed()) {
             needsFood = cachedFoodScore < settings.getFoodUnitsToCollect();
-
-            // Only collect if we don't have enough food.
-            // If the user inputs invalid settings, the bot would get stuck here.
             if (cachedFoodScore < settings.getFoodUnitsToCollect()) {
                 setTask(new CollectFoodTask(settings.getFoodUnitsToCollect()));
                 return 55f;
             }
         }
 
-
-        // Food eating is handled asynchronously.
         return Float.NEGATIVE_INFINITY;
-    }
-
-    private boolean areEnemiesNearby(AltoClef mod) {
-        for (Entity entity : mod.getEntityTracker().getCloseEntities()) {
-            if (entity instanceof HostileEntity hostile && hostile.distanceTo(mod.getPlayer()) < (isTryingToEat?14:7)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     @Override
     public boolean isActive() {
-        // We're always checking for food.
         return true;
     }
 
@@ -215,63 +185,32 @@ public class FoodChain extends SingleTaskChain {
             return false;
         }
 
-
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
         assert player != null;
         int foodLevel = player.getHungerManager().getFoodLevel();
-        float health = player.getHealth();
+        // Critical health should trigger immediate eating whenever hunger is not full,
+        // so regeneration is not delayed by the smallest-food threshold.
+        if (player.getHealth() <= 8.0F && foodLevel < 20) return true;
 
-        if (foodLevel >= 20) {
-            // We can't eat.
-            return false;
-        }
-
-        if (health <= 10) {
-            return true;
-        }
-        //Debug.logMessage("FOOD: " + foodLevel + " -- HEALTH: " + health);
-
-        // Eat if we're desperate/need to heal ASAP
-        if (player.isOnFire() || player.hasStatusEffect(StatusEffects.WITHER) || health < config.alwaysEatWhenWitherOrFireAndHealthBelow) {
-            return true;
-        } else if (foodLevel > config.alwaysEatWhenBelowHunger) {
-            if (health < config.alwaysEatWhenBelowHealth) {
-                return true;
-            }
-        } else {
-            // We have half hunger
-            return true;
-        }
-
-
-        // Eat if we're  units hungry and we have a perfect fit.
-        if (foodLevel < config.alwaysEatWhenBelowHungerAndPerfectFit && cachedPerfectFood.isPresent()) {
-            int need = 20 - foodLevel;
-            Item best = cachedPerfectFood.get();
-
-            int fills = (ItemVer.getFoodComponent(best) != null) ? ItemVer.getFoodComponent(best).getHunger() : -1;
-            return fills == need;
-        }
-
-        return false;
+        // Eat as soon as the smallest food in the inventory fits without
+        // overflowing the hunger bar: (20 - foodLevel) >= its hunger value.
+        // This keeps hunger (and therefore saturation and natural regeneration)
+        // topped up without wasting any food points.
+        return 20 - foodLevel >= cachedMinFoodHunger;
     }
 
     private Pair<Integer, Optional<Item>> calculateFood(AltoClef mod) {
         Item bestFood = null;
         double bestFoodScore = Double.NEGATIVE_INFINITY;
         int foodTotal = 0;
+        cachedMinFoodHunger = Integer.MAX_VALUE;
         ClientPlayerEntity player = mod.getPlayer();
         float health = player != null ? player.getHealth() : 20;
-        //float toHeal = player != null? 20 - player.getHealth() : 0;
         float hunger = player != null ? player.getHungerManager().getFoodLevel() : 20;
         float saturation = player != null ? player.getHungerManager().getSaturationLevel() : 20;
-        // Get best food item + calculate food total
         for (ItemStack stack : mod.getItemStorage().getItemStacksPlayerInventory(true)) {
             if (ItemVer.isFood(stack)) {
-                // Ignore protected items
                 if (!ItemHelper.canThrowAwayStack(mod, stack)) continue;
-
-                // Ignore spider eyes
                 if (stack.getItem() == Items.SPIDER_EYE) {
                     continue;
                 }
@@ -304,16 +243,12 @@ public class FoodChain extends SingleTaskChain {
                     bestFood = stack.getItem();
                 }
 
+                cachedMinFoodHunger = Math.min(cachedMinFoodHunger, food.getHunger());
                 foodTotal += Objects.requireNonNull(ItemVer.getFoodComponent(stack.getItem())).getHunger() * stack.getCount();
             }
         }
 
         return new Pair<>(foodTotal, Optional.ofNullable(bestFood));
-    }
-
-    // If we need to eat like, NOW.
-    public boolean needsToEatCritical() {
-        return false;
     }
 
     public boolean hasFood() {
@@ -329,9 +264,13 @@ public class FoodChain extends SingleTaskChain {
     }
 
     static class FoodChainConfig {
-        public int alwaysEatWhenWitherOrFireAndHealthBelow = 6;
+        @Deprecated
         public int alwaysEatWhenBelowHunger = 10;
+        @Deprecated
+        public int alwaysEatWhenWitherOrFireAndHealthBelow = 6;
+        @Deprecated
         public int alwaysEatWhenBelowHealth = 14;
+        @Deprecated
         public int alwaysEatWhenBelowHungerAndPerfectFit = 20 - 5;
         public int prioritizeSaturationWhenBelowHealth = 8;
         public float foodPickPrioritizeSaturationSaturationMultiplier = 8;

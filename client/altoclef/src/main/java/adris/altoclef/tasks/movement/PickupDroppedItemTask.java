@@ -152,9 +152,8 @@ public class PickupDroppedItemTask extends AbstractDoToClosestObjectTask<ItemEnt
         }
         AltoClef mod = AltoClef.getInstance();
 
-        if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
-            progressChecker.reset();
-        }
+        // Do NOT reset the progress checker while Baritone is pathing: doing so every
+        // tick prevents it from ever detecting a stalled approach to the dropped item.
         if (unstuckTask != null && unstuckTask.isActive() && !unstuckTask.isFinished() && stuckInBlock(mod) != null) {
             setDebugState("Getting unstuck from block.");
             stuckCheck.reset();

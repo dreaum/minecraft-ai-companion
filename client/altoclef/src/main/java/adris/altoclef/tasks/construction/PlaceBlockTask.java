@@ -100,7 +100,6 @@ public class PlaceBlockTask extends Task implements ITaskRequiresGrounded {
         // Perform timeout wander
         if (wanderTask.isActive() && !wanderTask.isFinished()) {
             setDebugState("Wandering.");
-            progressChecker.reset();
             return wanderTask;
         }
 

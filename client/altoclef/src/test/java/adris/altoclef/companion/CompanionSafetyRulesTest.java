@@ -8,30 +8,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CompanionSafetyRulesTest {
 
     @Test
-    void ignoresDangerWhenNoCompanionMovementIsActive() {
+    void ignoresEverythingWhenNoCompanionMovementIsActive() {
         assertTrue(CompanionSafetyRules.evaluate(false, true, 1, false, -2).isEmpty());
     }
 
     @Test
-    void pausesForLavaBeforeOtherConditions() {
-        assertEquals("lava detected", CompanionSafetyRules.evaluate(true, true, 1, false, -2).orElseThrow());
+    void neverPausesForEnvironmentHazardsOrLowHealthOrHunger() {
+        assertTrue(CompanionSafetyRules.evaluate(true, true, true,
+                6, 3, true, 20, 300, false, true, 0).isEmpty());
     }
 
     @Test
-    void pausesForLowHealthAndFalls() {
-        assertEquals("health is critically low", CompanionSafetyRules.evaluate(true, false, 6, true, 0).orElseThrow());
-        assertEquals("dangerous fall detected", CompanionSafetyRules.evaluate(true, false, 20, false, -0.8).orElseThrow());
+    void pausesForDangerousFall() {
+        assertEquals("dangerous fall detected",
+                CompanionSafetyRules.evaluate(true, false, 20, false, -0.8).orElseThrow());
     }
 
     @Test
-    void pausesForFireDrowningSuffocationAndHunger() {
-        assertEquals("fire detected", CompanionSafetyRules.evaluate(true, false, true,
-                20, 20, false, 300, 300, false, true, 0).orElseThrow());
-        assertEquals("drowning risk detected", CompanionSafetyRules.evaluate(true, false, false,
-                20, 20, true, 20, 300, false, true, 0).orElseThrow());
+    void pausesForSuffocation() {
         assertEquals("suffocation detected", CompanionSafetyRules.evaluate(true, false, false,
                 20, 20, false, 300, 300, true, true, 0).orElseThrow());
-        assertEquals("hunger is critically low", CompanionSafetyRules.evaluate(true, false, false,
-                20, 3, false, 300, 300, false, true, 0).orElseThrow());
     }
 }

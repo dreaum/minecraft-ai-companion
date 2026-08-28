@@ -1,165 +1,87 @@
 package adris.altoclef.butler;
 
 import adris.altoclef.AltoClef;
-import adris.altoclef.Debug;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ChatMessageEvent;
-import adris.altoclef.eventbus.events.TaskFinishedEvent;
 import adris.altoclef.ui.MessagePriority;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.message.MessageType;
-import net.minecraft.world.World;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 /**
- * The butler system lets authorized players send commands to the bot to execute.
+ * Lets whitelisted players drive the companion through public chat.
  * <p>
- * This effectively makes the bot function as a servant, or butler.
+ * The companion no longer reads private whispers. A player whose exact name is on
+ * "altoclef_butler_whitelist.txt" (and not on the blacklist) may simply talk in the
+ * public chat channel and the message is forwarded to the local AI bridge.
  * <p>
- * Authorization is defined in "altoclef_butler_whitelist.txt" and "altoclef_butler_blacklist.txt"
- * and depends on the "useButlerWhitelist" and "useButlerBlacklist" settings in "altoclef_settings.json"
+ * Authorization depends on the "useButlerWhitelist" and "useButlerBlacklist" settings
+ * in "altoclef_settings.json".
  */
 public class Butler {
 
     private static final String BUTLER_MESSAGE_START = "` ";
 
     private final AltoClef mod;
-
-    private final WhisperChecker whisperChecker = new WhisperChecker();
-
     private final UserAuth userAuth;
 
+    private static final long LOG_ECHO_WINDOW_MS = 30_000L;
+
     private String currentUser = null;
+    private long lastRequestAt = 0L;
     private final Deque<String> recentPublicMessages = new ArrayDeque<>();
     private final Map<String, Long> recentPublicMessageTimes = new HashMap<>();
-
-    // Utility variables for command logic
-    private boolean commandInstantRan = false;
-    private boolean commandFinished = false;
 
     public Butler(AltoClef mod) {
         this.mod = mod;
         userAuth = new UserAuth(mod);
 
-        // Revoke our current user whenever a task finishes.
-        EventBus.subscribe(TaskFinishedEvent.class, evt -> {
-            if (currentUser != null) {
-                currentUser = null;
-            }
-        });
-
-        // Receive system events
+        // Whitelisted players talk to the companion directly in public chat.
         EventBus.subscribe(ChatMessageEvent.class, evt -> {
-            boolean debug = ButlerConfig.getInstance().whisperFormatDebug;
             String message = evt.messageContent();
             String sender = evt.senderName();
-            MessageType messageType = evt.messageType();
             String receiver = mod.getPlayer().getName().getString();
+            if (sender == null || sender.equalsIgnoreCase(receiver)) return;
+            if (message == null || message.startsWith(BUTLER_MESSAGE_START)) return;
             if (isRecentPublicMessage(message)) return;
-            // Servers may echo our own public chat with a differently-cased
-            // profile name. Never feed the companion's own output back in.
-            if (sender != null && !sender.equalsIgnoreCase(receiver)
-                    && (shouldAccept(messageType) || isAuthorizedPublic(sender, messageType))) {
-                String wholeMessage = sender + " " + receiver + " " + message;
-                if (debug) {
-                    Debug.logMessage("RECEIVED WHISPER: \"" + wholeMessage + "\".");
-                }
-                if (isAuthorizedPublic(sender, messageType)) receiveAgentRequest(sender, message.trim());
-                else this.mod.getButler().receiveMessage(wholeMessage, receiver);
+
+            if (userAuth.isUserAuthorized(sender)) {
+                receiveAgentRequest(sender, message.trim());
+            } else if (ButlerConfig.getInstance().sendAuthorizationResponse) {
+                sendPublic(ButlerConfig.getInstance().failedAuthorizationResposne.replace("{from}", sender), MessagePriority.UNAUTHORIZED);
             }
         });
-    }
-
-    private static boolean shouldAccept(MessageType messageType) {
-        //#if MC >= 11904
-        return messageType.chat().style().isItalic()
-                && messageType.chat().style().getColor() != null
-                && Objects.equals(messageType.chat().style().getColor().getName(), "gray");
-        //#else
-        //$$ //it doesnt look like previous versions did any type of checking
-        //$$ return true;
-        //#endif
-    }
-
-    private void receiveMessage(String msg, String receiver) {
-        // Format: <USER> whispers to you: <MESSAGE>
-        // Format: <USER> whispers: <MESSAGE>
-        WhisperChecker.MessageResult result = this.whisperChecker.receiveMessage(mod, receiver, msg);
-        if (result != null) {
-            this.receiveWhisper(result.from, result.message);
-        } else if (ButlerConfig.getInstance().whisperFormatDebug) {
-            Debug.logMessage("    Not Parsing: MSG format not found.");
-        }
-    }
-
-    private void receiveWhisper(String username, String message) {
-
-        boolean debug = ButlerConfig.getInstance().whisperFormatDebug;
-        // Ignore messages from other bots.
-        if (message.startsWith(BUTLER_MESSAGE_START)) {
-            if (debug) {
-                Debug.logMessage("    Rejecting: MSG is detected to be sent from another bot.");
-            }
-            return;
-        }
-
-        if (userAuth.isUserAuthorized(username)) {
-            if (message.regionMatches(true, 0, "ai ", 0, 3)) {
-                receiveAgentRequest(username, message.substring(3).trim());
-                return;
-            }
-            mod.getCompanionOrchestrator().handle(username, message,
-                    reply -> sendWhisper(username, reply, MessagePriority.TIMELY));
-        } else {
-            if (debug) {
-                Debug.logMessage("    Rejecting: User \"" + username + "\" is not authorized.");
-            }
-            if (ButlerConfig.getInstance().sendAuthorizationResponse) {
-                sendWhisper(username, ButlerConfig.getInstance().failedAuthorizationResposne.replace("{from}", username), MessagePriority.UNAUTHORIZED);
-            }
-        }
     }
 
     private void receiveAgentRequest(String username, String request) {
-        if (request.isBlank()) { sendWhisper(username, "AI request is empty.", MessagePriority.TIMELY); return; }
-        // Establish the same owner context used by legacy companion commands
-        // so altoclef_task and chat_private can authorize this LLM turn.
+        if (request.isBlank()) return;
+        // Keeps the owner context used by bridge tools (observe_world, altoclef_task).
         currentUser = username;
+        lastRequestAt = System.currentTimeMillis();
         if (mod.getAgentBridge() == null || !mod.getAgentBridge().isConnected()) {
-            sendWhisper(username, "AI backend is not connected.", MessagePriority.ASAP);
+            sendPublic("AI backend is not connected.", MessagePriority.ASAP);
             return;
         }
-        /* The Python backend owns prompts and model calls. */
         mod.getAgentBridge().submitUserRequest(username, request);
-        sendWhisper(username, "AI request accepted.", MessagePriority.TIMELY);
-        return;
     }
 
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isUserAuthorized(String username) {
         return userAuth.isUserAuthorized(username);
     }
 
     public void onLog(String message, MessagePriority priority) {
-        if (currentUser != null) {
-            sendWhisper(message, priority);
+        if (currentUser != null && System.currentTimeMillis() - lastRequestAt < LOG_ECHO_WINDOW_MS) {
+            sendPublic(message, priority);
         }
     }
 
     public void onLogWarning(String message, MessagePriority priority) {
-        if (currentUser != null) {
-            sendWhisper("[WARNING:] " + message, priority);
+        if (currentUser != null && System.currentTimeMillis() - lastRequestAt < LOG_ECHO_WINDOW_MS) {
+            sendPublic("[WARNING:] " + message, priority);
         }
-    }
-
-    public void tick() {
-        // Nothing for now.
     }
 
     public String getCurrentUser() {
@@ -170,62 +92,6 @@ public class Butler {
         return currentUser != null;
     }
 
-    private void executeWhisper(String username, String message) {
-        String prevUser = currentUser;
-        commandInstantRan = true;
-        commandFinished = false;
-        currentUser = username;
-        sendWhisper("Command Executing: " + message, MessagePriority.TIMELY);
-
-        String prefix = mod.getModSettings().getCommandPrefix();
-        AltoClef.getCommandExecutor().execute(prefix + message, () -> {
-            // On finish
-            // Task completion can clear currentUser before this callback runs (for
-            // example, stopTasks emits TaskFinishedEvent). Reply to the sender
-            // captured for this request instead of relying on mutable state.
-            sendWhisper(username, "Command Finished: " + message, MessagePriority.TIMELY);
-            if (!commandInstantRan) {
-                currentUser = null;
-            }
-            commandFinished = true;
-        }, e -> {
-            for (String msg : e.getMessage().split("\n")) {
-                sendWhisper(username, "TASK FAILED: " + msg, MessagePriority.ASAP);
-            }
-            e.printStackTrace();
-            mod.getCompanionSession().releaseOwnerIfInactive();
-            currentUser = null;
-            commandInstantRan = false;
-        });
-        commandInstantRan = false;
-        // Only set the current user if we're still running.
-        if (commandFinished) {
-            currentUser = prevUser;
-        }
-    }
-
-    private void sendWhisper(String message, MessagePriority priority) {
-        if (currentUser != null) {
-            sendWhisper(currentUser, message, priority);
-        } else {
-            Debug.logWarning("Failed to send butler message as there are no users present: " + message);
-        }
-    }
-
-    public void sendTo(String username, String message, MessagePriority priority) {
-      // Minecraft's serverbound chat/whisper payload is limited to 256 chars.
-      String safe = truncateForChat(message, 240 - BUTLER_MESSAGE_START.getBytes(StandardCharsets.UTF_8).length);
-      mod.getMessageSender().enqueueWhisper(username, BUTLER_MESSAGE_START + safe, priority);
-    }
-
-    private boolean isAuthorizedPublic(String sender, MessageType messageType) {
-        return userAuth.isUserAuthorized(sender) && !shouldAccept(messageType);
-    }
-
-    private void sendWhisper(String username, String message, MessagePriority priority) {
-        sendTo(username, message, priority);
-    }
-
     public void sendPublic(String message, MessagePriority priority) {
         String safe = truncateForChat(message, 240);
         synchronized (recentPublicMessages) {
@@ -234,12 +100,6 @@ public class Butler {
             while (recentPublicMessages.size() > 8) recentPublicMessages.removeFirst();
         }
         mod.getMessageSender().enqueueChat(safe, priority);
-    }
-
-    /** Sends a response only to the currently authorized owner. */
-    public void sendPrivate(String username, String message, MessagePriority priority) {
-        if (username == null || username.isBlank()) return;
-        sendTo(username, message, priority);
     }
 
     private boolean isRecentPublicMessage(String message) {
