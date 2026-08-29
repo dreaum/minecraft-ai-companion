@@ -95,7 +95,7 @@ public class MineAndCollectTask extends ResourceTask {
             return new SatisfyMiningRequirementTask(_requirement);
         }
 
-        if (_subtask.isMining()) {
+        if (_subtask.isMining() && _subtask.miningPos() != null) {
             makeSureToolIsEquipped(mod);
         }
 
@@ -173,6 +173,10 @@ public class MineAndCollectTask extends ResourceTask {
         private BlockPos miningPos;
         private int emptyScanTicks;
         private boolean searchExhausted;
+        private boolean nativeMining;
+        private boolean previousAllowBreak;
+        private boolean previousAllowPlace;
+        private boolean previousMineScanDroppedItems;
         private static final int MAX_EMPTY_SCAN_TICKS = 20 * 10;
 
         public MineOrCollectTask(Block[] blocks, ItemTarget[] targets) {
@@ -195,6 +199,17 @@ public class MineAndCollectTask extends ResourceTask {
         @Override
         protected Optional<Object> getClosestTo(AltoClef mod, Vec3d pos) {
             mod.getBlockScanner().scanNearbyBlocks(pos, 32);
+
+            // Mine one selected block to completion before choosing another.
+            // The parent task normally retargets while pathing, which causes it
+            // to wander between nearby blocks instead of completing either one.
+            if (miningPos != null && isValid(mod, miningPos)) {
+                return Optional.of(miningPos);
+            }
+
+            // A broken target is immediately followed by its matching drop. Do
+            // not let a nearby second block win the distance comparison before
+            // the item from the first block has been collected.
             Pair<Double, Optional<BlockPos>> closestBlock = getClosestAvailableBlock(mod, pos);
             Pair<Double, Optional<ItemEntity>> closestDrop = getClosestItemDrop(mod,pos,  _targets);
 
@@ -229,7 +244,6 @@ public class MineAndCollectTask extends ResourceTask {
         private Pair<Double, Optional<BlockPos>> getClosestAvailableBlock(AltoClef mod, Vec3d pos) {
             Optional<BlockPos> closestBlock = mod.getBlockScanner().getNearestBlock(pos, check -> {
                 if (blacklist.contains(check)) return false;
-                if (mod.getBlockScanner().isUnreachable(check)) return false;
                 return WorldHelper.canExplicitlyBreak(check);
             }, _blocks);
             return new Pair<>(
@@ -240,7 +254,6 @@ public class MineAndCollectTask extends ResourceTask {
 
         public static Pair<Double, Optional<BlockPos>> getClosestBlock(AltoClef mod, Vec3d pos, Block... blocks) {
             Optional<BlockPos> closestBlock = mod.getBlockScanner().getNearestBlock(pos, check -> {
-                if (mod.getBlockScanner().isUnreachable(check)) return false;
                 return WorldHelper.canExplicitlyBreak(check);
             }, blocks);
 
@@ -259,6 +272,13 @@ public class MineAndCollectTask extends ResourceTask {
         protected Task onTick() {
             AltoClef mod = AltoClef.getInstance();
             if (StorageHelper.itemTargetsMetInventoryNoCursor(_targets)) return null;
+
+            if (nativeMining) {
+                if (!mod.getClientBaritone().getMineProcess().isActive()) {
+                    searchExhausted = true;
+                }
+                return null;
+            }
 
             // Do not reset while Baritone is pathing. Resetting every tick prevents
             // MovementProgressChecker from ever detecting a stalled route.
@@ -294,7 +314,7 @@ public class MineAndCollectTask extends ResourceTask {
                 miningPos = newPos;
                 return new DestroyBlockTask(miningPos);
             }
-            if (obj instanceof ItemEntity) {
+            if (obj instanceof ItemEntity drop) {
                 miningPos = null;
                 return _pickupTask;
             }
@@ -305,10 +325,10 @@ public class MineAndCollectTask extends ResourceTask {
         protected boolean isValid(AltoClef mod, Object obj) {
             if (obj instanceof BlockPos b) {
                 if (blacklist.contains(b)) return false;
-                return !mod.getBlockScanner().isUnreachable(b)
-                        && mod.getBlockScanner().isBlockAtPosition(b, _blocks) && WorldHelper.canExplicitlyBreak(b);
+                return mod.getBlockScanner().isBlockAtPosition(b, _blocks) && WorldHelper.canExplicitlyBreak(b);
             }
             if (obj instanceof ItemEntity drop) {
+                if (!drop.isAlive()) return false;
                 Item item = drop.getStack().getItem();
                 if (_targets != null) {
                     for (ItemTarget target : _targets) {
@@ -322,16 +342,35 @@ public class MineAndCollectTask extends ResourceTask {
 
         @Override
         protected void onStart() {
+            AltoClef mod = AltoClef.getInstance();
             progressChecker.reset();
             miningPos = null;
             blacklist.clear();
             emptyScanTicks = 0;
             searchExhausted = false;
+            nativeMining = true;
+            previousAllowBreak = mod.getClientBaritoneSettings().allowBreak.value;
+            previousAllowPlace = mod.getClientBaritoneSettings().allowPlace.value;
+            previousMineScanDroppedItems = mod.getClientBaritoneSettings().mineScanDroppedItems.value;
+            mod.getClientBaritoneSettings().allowBreak.value = true;
+            // Permit Baritone to place available throwaway blocks when a
+            // return route needs a short bridge or pillar. Restore globally
+            // configured behavior in onStop.
+            mod.getClientBaritoneSettings().allowPlace.value = true;
+            mod.getClientBaritoneSettings().mineScanDroppedItems.value = true;
+            mod.getClientBaritone().getMineProcess().mine(0, _blocks);
         }
 
         @Override
         protected void onStop(Task interruptTask) {
-
+            if (nativeMining) {
+                AltoClef mod = AltoClef.getInstance();
+                mod.getClientBaritone().getMineProcess().cancel();
+                mod.getClientBaritoneSettings().allowBreak.value = previousAllowBreak;
+                mod.getClientBaritoneSettings().allowPlace.value = previousAllowPlace;
+                mod.getClientBaritoneSettings().mineScanDroppedItems.value = previousMineScanDroppedItems;
+                nativeMining = false;
+            }
         }
 
         @Override
@@ -348,7 +387,7 @@ public class MineAndCollectTask extends ResourceTask {
         }
 
         public boolean isMining() {
-            return miningPos != null;
+            return nativeMining && AltoClef.getInstance().getClientBaritone().getMineProcess().isActive();
         }
 
         public BlockPos miningPos() {

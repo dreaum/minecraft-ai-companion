@@ -51,6 +51,7 @@ public class DestroyBlockTask extends Task implements ITaskRequiresGrounded {
     };
     private Task unstuckTask = null;
     private boolean isMining;
+    private BlockPos miningStance;
 
     public DestroyBlockTask(BlockPos pos) {
         this.pos = pos;
@@ -198,6 +199,7 @@ public class DestroyBlockTask extends Task implements ITaskRequiresGrounded {
         // Reset move checker and stuck check.
         _moveChecker.reset();
         stuckCheck.reset();
+        miningStance = null;
 
         // Get the item stack in the cursor slot.
         ItemStack cursorStack = StorageHelper.getItemStackInCursorSlot();
@@ -313,6 +315,13 @@ public class DestroyBlockTask extends Task implements ITaskRequiresGrounded {
             mod.getBlockScanner().requestBlockUnreachable(pos);
         }
 
+        // Never mine the block supporting the player while a safe adjacent
+        // stance exists. This preserves narrow paths and temporary bridges.
+        if (isStandingOnTarget(mod) && moveToMiningStance(mod)) {
+            setDebugState("Moving to a safe mining stance...");
+            return null;
+        }
+
         // Check if the block above the position is not solid, the player is above the position,
         // and the player is within a distance of 0.89 blocks from the position
         if (!WorldHelper.isSolidBlock(pos.up()) && mod.getPlayer().getPos().y > pos.getY() && pos.isWithinDistance(mod.getPlayer().isOnGround() ? mod.getPlayer().getPos() : mod.getPlayer().getPos().add(0, -1, 0), 0.89)) {
@@ -358,6 +367,10 @@ public class DestroyBlockTask extends Task implements ITaskRequiresGrounded {
                     mod.getInputControls().release(Input.SNEAK);
                 }
             }
+            if (moveToMiningStance(mod)) {
+                setDebugState("Getting to safe mining stance...");
+                return null;
+            }
             if (!mod.getClientBaritone().getCustomGoalProcess().isActive()) {
                 mod.getClientBaritone().getBuilderProcess().onLostControl();
                 mod.getClientBaritone().getCustomGoalProcess().setGoalAndPath(mod.getWorld().getBlockState(pos.up()).getBlock() ==
@@ -365,6 +378,55 @@ public class DestroyBlockTask extends Task implements ITaskRequiresGrounded {
             }
         }
         return null;
+    }
+
+    private boolean isStandingOnTarget(AltoClef mod) {
+        return mod.getPlayer().getBlockPos().down().equals(pos);
+    }
+
+    /** Find a stable side position from which the target can be mined without using it as floor. */
+    private BlockPos findMiningStance(AltoClef mod) {
+        if (miningStance != null && isSafeMiningStance(mod, miningStance)) {
+            return miningStance;
+        }
+
+        BlockPos best = null;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        int[][] horizontalOffsets = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        int[] heightOffsets = {0, -1, 1};
+        for (int[] horizontal : horizontalOffsets) {
+            for (int height : heightOffsets) {
+                BlockPos candidate = pos.add(horizontal[0], height, horizontal[1]);
+                if (!isSafeMiningStance(mod, candidate)) continue;
+                double distance = candidate.getSquaredDistance(mod.getPlayer().getPos());
+                if (distance < bestDistance) {
+                    best = candidate;
+                    bestDistance = distance;
+                }
+            }
+        }
+        miningStance = best;
+        return best;
+    }
+
+    private boolean isSafeMiningStance(AltoClef mod, BlockPos stance) {
+        // Never choose the target itself as the floor of the mining position.
+        if (stance.down().equals(pos)) return false;
+        return mod.getWorld().getBlockState(stance).isAir()
+                && mod.getWorld().getBlockState(stance.up()).isAir()
+                && WorldHelper.isSolidBlock(stance.down());
+    }
+
+    private boolean moveToMiningStance(AltoClef mod) {
+        BlockPos stance = findMiningStance(mod);
+        if (stance == null || stance.equals(mod.getPlayer().getBlockPos())) {
+            return false;
+        }
+        if (!mod.getClientBaritone().getCustomGoalProcess().isActive()) {
+            mod.getClientBaritone().getBuilderProcess().onLostControl();
+            mod.getClientBaritone().getCustomGoalProcess().setGoalAndPath(new GoalBlock(stance));
+        }
+        return true;
     }
 
     /**

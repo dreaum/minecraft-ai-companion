@@ -3,6 +3,7 @@ package adris.altoclef.butler;
 import adris.altoclef.AltoClef;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ChatMessageEvent;
+import adris.altoclef.ui.ChatMessageSanitizer;
 import adris.altoclef.ui.MessagePriority;
 
 import java.nio.charset.StandardCharsets;
@@ -93,7 +94,8 @@ public class Butler {
     }
 
     public void sendPublic(String message, MessagePriority priority) {
-        String safe = truncateForChat(message, 240);
+        String safe = truncateForChat(ChatMessageSanitizer.sanitize(message), 240);
+        if (safe.isBlank()) return;
         synchronized (recentPublicMessages) {
             recentPublicMessages.addLast(safe);
             recentPublicMessageTimes.put(safe, System.currentTimeMillis());

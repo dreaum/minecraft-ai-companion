@@ -259,13 +259,13 @@ public interface WorldHelper {
      * not destroy incidental terrain. That setting must not make an already
      * selected resource target invisible to {@code MineAndCollectTask}; the
      * actual block destruction is performed by {@code DestroyBlockTask}, not by
-     * the pathfinder. Keep the protected-position and reachability checks here.
+     * the pathfinder. Reachability is likewise decided by that task, because a
+     * player standing above a block can safely mine it without pathing beside it.
      */
     public static boolean canExplicitlyBreak(BlockPos pos) {
         AltoClef altoClef = AltoClef.getInstance();
         return altoClef.getWorld().getBlockState(pos).getHardness(altoClef.getWorld(), pos) >= 0
-                && !altoClef.getExtraBaritoneSettings().shouldAvoidBreaking(pos)
-                && canReach(pos);
+                && !altoClef.getExtraBaritoneSettings().shouldAvoidBreaking(pos);
     }
 
     static boolean isInNetherPortal() {

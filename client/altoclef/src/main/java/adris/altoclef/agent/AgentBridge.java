@@ -48,13 +48,17 @@ public final class AgentBridge implements WebSocket.Listener {
         token = p.getProperty("token", "");
         String ws = p.getProperty("websocket", "ws://127.0.0.1:8765");
         startBackend(p, root);
-        for (int attempt = 0; attempt < 8 && !connected; attempt++) {
+        // Keep retrying until the backend becomes available. This is
+        // intentionally unbounded: the companion can start before Python and
+        // should recover automatically when the backend is launched later.
+        int attempt = 0;
+        while (!connected) {
             try {
                 socket = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
                         .newWebSocketBuilder().connectTimeout(Duration.ofSeconds(5)).buildAsync(URI.create(ws), this).join();
             } catch (Exception e) {
-                if (attempt == 7) mod.log("Agent backend unavailable: " + rootCause(e));
-                else try { Thread.sleep(500L); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
+                if (attempt++ % 20 == 0) mod.log("Agent backend unavailable, retrying: " + rootCause(e));
+                try { Thread.sleep(500L); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
             }
         }
     }
@@ -71,7 +75,9 @@ public final class AgentBridge implements WebSocket.Listener {
         try {
             Path path = Path.of(script);
             if (Files.exists(path)) {
-                ProcessBuilder builder = new ProcessBuilder("cmd", "/c", "\"" + path.toString() + "\"").directory(path.getParent().toFile());
+                // Launch the backend in its own visible console so startup
+                // errors and the Python monitor are not hidden by Minecraft.
+                ProcessBuilder builder = new ProcessBuilder("cmd", "/c", "start", "Minecraft Agent Backend", "cmd", "/k", "\"" + path.toString() + "\"").directory(path.getParent().toFile());
                 builder.environment().put("MINECRAFT_AGENT_CONFIG", root.resolve("llm.properties").toString());
                 backend = builder.start();
             }

@@ -39,7 +39,8 @@ final class CompanionTaskFactory {
     static Task create(AltoClef mod, CompanionIntent intent, String owner) {
         return switch (intent.type()) {
             // The catalogue owns the complete resource chain: tools, mining, crafting, fuel and smelting.
-            case COLLECT, CRAFT, SMELT -> TaskCatalogue.getItemTask(canonicalTarget(intent.target()), intent.count());
+            case COLLECT -> new CollectNewItemsTask(canonicalTarget(intent.target()), intent.count());
+            case CRAFT, SMELT -> TaskCatalogue.getItemTask(canonicalTarget(intent.target()), intent.count());
             case GOTO -> new GetToBlockTask(new BlockPos(intent.x(), intent.y(), intent.z()));
             case FOLLOW -> new FollowPlayerTask(owner);
             case COME -> new ComeToPlayerTask(mod.getEntityTracker().getPlayerEntity(owner)

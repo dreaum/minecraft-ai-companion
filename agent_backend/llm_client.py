@@ -11,7 +11,12 @@ class LLMClient:
     def complete(self, messages, tools):
         body = {"model": self.model, "messages": messages, "stream": False}
         if tools:
-            body["tools"] = [{"type": "function", "function": {"name": t["name"], "parameters": t.get("schema", {})}} for t in tools]
+            def _fn(t):
+                fn = {"name": t["name"], "parameters": t.get("schema", {})}
+                if t.get("description"):
+                    fn["description"] = t["description"]
+                return fn
+            body["tools"] = [{"type": "function", "function": _fn(t)} for t in tools]
         request = urllib.request.Request(self.endpoint, data=json.dumps(body, ensure_ascii=False).encode(), headers={"Content-Type":"application/json", **({"Authorization":"Bearer " + self.key} if self.key else {})})
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:

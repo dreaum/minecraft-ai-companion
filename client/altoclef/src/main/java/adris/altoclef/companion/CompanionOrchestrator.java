@@ -223,7 +223,10 @@ public final class CompanionOrchestrator {
     private static int timeoutTicksFor(CompanionIntent intent) {
         return switch (intent.type()) {
             case COLLECT, CRAFT, SMELT -> RESOURCE_TIMEOUT_TICKS;
-            case GOTO, FOLLOW, COME, HOME -> MOVEMENT_TIMEOUT_TICKS;
+            // Following is intentionally continuous and ends only on an
+            // explicit stop or a new controlling intent.
+            case FOLLOW -> NO_TIMEOUT;
+            case GOTO, COME, HOME -> MOVEMENT_TIMEOUT_TICKS;
             case ATTACK -> ATTACK_TIMEOUT_TICKS;
             case GIVE -> GIVE_TIMEOUT_TICKS;
             case PROTECT -> NO_TIMEOUT;

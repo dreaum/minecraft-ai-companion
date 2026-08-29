@@ -43,10 +43,32 @@ async def run():
         CONFIG, llm.model, llm.endpoint,
     )
     state = {"connected": False, "protocol_version": PROTOCOL_VERSION, "tools": []}
+    monitors = set()
+    async def publish(event):
+        dead = set()
+        payload = json.dumps({"type": "agent_event", "event": event}, ensure_ascii=False)
+        for monitor in monitors:
+            try: await monitor.send(payload)
+            except Exception: dead.add(monitor)
+        monitors.difference_update(dead)
+
+    def on_event(event):
+        asyncio.create_task(publish(event))
+
     async def handler(websocket):
+        path = getattr(websocket, "path", None) or getattr(getattr(websocket, "request", None), "path", "")
+        if path.split("?", 1)[0] == "/monitor":
+            monitors.add(websocket)
+            try:
+                await websocket.wait_closed()
+            finally:
+                monitors.discard(websocket)
+            return
         state["connected"] = True
         async def send(message): await websocket.send(encode(message))
-        loop = AgentLoop(llm, send, state["tools"])
+        memory_dir = CONFIG.parent / "memories"
+        session_file = CONFIG.parent / "session.json"
+        loop = AgentLoop(llm, send, state["tools"], on_event=on_event, memory_dir=memory_dir, session_file=session_file)
         try:
             async for raw in websocket:
                 try: message = decode(raw)
@@ -54,7 +76,10 @@ async def run():
                 if expected_token and message.get("token") != expected_token:
                     await send({"type":"agent_error", "error":"invalid bridge token"})
                     continue
-                if message.get("type") == "hello": state["tools"] = message.get("tools") or []; loop.tools = state["tools"]; await send({"type":"hello_ack"})
+                if message.get("type") == "hello":
+                    state["tools"] = message.get("tools") or []
+                    loop.all_tools = list(state["tools"]) + loop.all_tools[-1:]
+                    await send({"type":"hello_ack"})
                 elif message.get("type") == "user_request": await loop.request(message.get("user", "owner"), message.get("request", ""))
                 elif message.get("type") == "tool_result": await loop.result(message)
                 elif message.get("type") == "world_event": loop.observe(message.get("observation") or {})

@@ -300,8 +300,10 @@ public class AltoClef implements ModInitializer {
         getClientBaritoneSettings().allowParkour.value = false;
         getClientBaritoneSettings().allowParkourAscend.value = false;
         getClientBaritoneSettings().allowParkourPlace.value = false;
-        getClientBaritoneSettings().allowBreak.value = false;
-        getClientBaritoneSettings().allowPlace.value = false;
+        // Keep Baritone able to clear obstacles and place temporary support
+        // blocks for navigation and return routes.
+        getClientBaritoneSettings().allowBreak.value = true;
+        getClientBaritoneSettings().allowPlace.value = true;
         getClientBaritoneSettings().allowDiagonalDescend.value = false;
         getClientBaritoneSettings().allowDiagonalAscend.value = false;
         getClientBaritoneSettings().blocksToAvoid.value = new LinkedList<>(List.of(Blocks.FLOWERING_AZALEA, Blocks.AZALEA,
